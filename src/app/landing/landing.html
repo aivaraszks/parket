@@ -1,0 +1,20 @@
+<div class="floor" aria-hidden="true">
+  <div class="plane" [style.background-image]="floorImage"></div>
+</div>
+<div class="sun" aria-hidden="true"></div>
+<div class="gleam" aria-hidden="true"></div>
+<div class="veil" aria-hidden="true"></div>
+<main class="hero">
+  <div class="lockup">
+    <h1 class="wordmark" aria-label="parket">
+      @for (letter of letters; track $index) {
+        <span class="cell" aria-hidden="true" [style.--i]="$index" [style.--c]="$index - 2.5">
+          <span class="letter">{{ letter }}</span>
+        </span>
+      }
+      <span class="sheen" aria-hidden="true">parket</span>
+    </h1>
+    <span class="rule" aria-hidden="true"></span>
+  </div>
+</main>
+<div class="grain" aria-hidden="true"></div>

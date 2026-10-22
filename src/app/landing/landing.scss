@@ -1,0 +1,328 @@
+:host {
+  position: relative;
+  display: block;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: var(--color-floor-dark);
+}
+
+.floor,
+.sun,
+.gleam,
+.veil {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+// Floor: an oversized plane tilted back in perspective so it always covers the viewport.
+// Opening: fades up from dark while the "camera" eases down (scale + tilt settle).
+.floor {
+  overflow: hidden;
+  perspective: var(--floor-perspective);
+  // vanishing point above the viewport so the receding plane reaches the top edge
+  perspective-origin: 50% -60%;
+  transform-origin: center;
+  animation:
+    fade-in var(--dur-floor) var(--ease-out) both,
+    floor-settle var(--dur-settle) var(--ease-lux) both;
+}
+
+.plane {
+  position: absolute;
+  top: -260%;
+  right: -80%;
+  bottom: -12%;
+  left: -80%;
+  background-repeat: repeat;
+  background-position: center bottom;
+  background-size: var(--floor-tile-size);
+  transform-origin: 50% 100%;
+  transform: rotateX(var(--floor-tilt));
+  animation: plane-settle var(--dur-settle) var(--ease-lux) both;
+}
+
+// Sunlight: window shafts, a warm glow and a glossy specular band. Turns on after the floor settles.
+.sun {
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse 60% 45% at 78% 18%, var(--sun-warm) 0%, transparent 70%),
+    linear-gradient(
+      105deg,
+      transparent 28%,
+      var(--sun-sheen) 42%,
+      var(--sun-sheen) 46%,
+      transparent 60%
+    ),
+    repeating-linear-gradient(
+      115deg,
+      transparent 0 14%,
+      var(--sun-soft) 20% 27%,
+      transparent 33% 52%,
+      var(--sun-soft) 58% 63%,
+      transparent 69% 100%
+    );
+  background-size:
+    100% 100%,
+    100% 100%,
+    160% 160%;
+  background-position:
+    0 0,
+    0 0,
+    0 0;
+  filter: blur(14px);
+  animation:
+    fade-in calc(var(--dur-floor) * 1.6) var(--ease-out) var(--delay-sun) both,
+    sun-drift var(--dur-sun-drift) ease-in-out calc(var(--delay-sun) + 2s) infinite alternate;
+}
+
+// One-time gleam passing over the floor.
+.gleam {
+  overflow: hidden;
+  mix-blend-mode: screen;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -20% 0;
+    width: 45%;
+    background: linear-gradient(
+      100deg,
+      transparent 0%,
+      var(--sun-soft) 40%,
+      var(--sun-gleam) 50%,
+      var(--sun-soft) 60%,
+      transparent 100%
+    );
+    transform: translateX(-120%) skewX(-18deg);
+    animation: gleam-sweep var(--dur-gleam) var(--ease-sweep) var(--delay-gleam) both;
+  }
+}
+
+.veil {
+  background:
+    radial-gradient(ellipse at center, var(--veil-center) 0%, var(--veil-edge) 100%),
+    var(--veil-warm);
+  animation: fade-in var(--dur-floor) var(--ease-out) both;
+}
+
+.hero {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-6);
+
+  // local darkening behind the wordmark keeps white text AA-contrast on the light floor
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 55% 28% at 50% 50%, var(--veil-text) 0%, transparent 100%);
+    animation: fade-in var(--dur-floor) var(--ease-out) both;
+  }
+}
+
+.lockup {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  font-size: var(--text-wordmark);
+}
+
+.wordmark {
+  position: relative;
+  display: flex;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400; // Archivo Black ships a single heavy weight
+  text-transform: uppercase;
+  font-size: 1em;
+  line-height: 1.1;
+  letter-spacing: var(--tracking-wordmark);
+  // trailing tracking would shift the optical centre
+  margin-right: calc(var(--tracking-wordmark) * -1);
+  color: var(--color-text-on-floor);
+  text-shadow: var(--shadow-text);
+}
+
+// Mask: each letter rises from a baseline line. Only the bottom edge clips, and only
+// until the letter has landed, so the text shadow is never cut off.
+.cell {
+  display: inline-block;
+  clip-path: inset(-1em -1em 0 -1em);
+  animation: cell-open var(--dur-letter) var(--ease-lux) both;
+  animation-delay: calc(var(--delay-letters) + var(--i) * var(--stagger-letter));
+}
+
+.letter {
+  display: inline-block;
+  animation: letter-in var(--dur-letter) var(--ease-lux) both;
+  animation-delay: calc(var(--delay-letters) + var(--i) * var(--stagger-letter));
+}
+
+// One-time shine across the finished word (gradient clipped to text).
+.sheen {
+  position: absolute;
+  inset: 0;
+  white-space: nowrap;
+  font-kerning: none;
+  color: transparent;
+  text-shadow: none;
+  background: linear-gradient(100deg, transparent 40%, var(--shine-color) 50%, transparent 60%);
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  background-position: 130% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 0;
+  animation: sheen-pass var(--dur-sheen) var(--ease-sweep) var(--delay-sheen) both;
+}
+
+// Decorative hairline that draws out from the centre.
+.rule {
+  display: block;
+  width: 2.6em;
+  height: 1px;
+  background: var(--color-text-on-floor);
+  box-shadow: var(--shadow-rule);
+  transform-origin: center;
+  animation: rule-draw var(--dur-rule) var(--ease-lux) var(--delay-rule) both;
+}
+
+// Retro film grain over everything, text included. Blends neutrally (grey = no change).
+.grain {
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='.33 .33 .33 0 0 .33 .33 .33 0 0 .33 .33 .33 0 0 0 0 0 0 1'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='3.2' intercept='-1.1'/%3E%3CfeFuncG type='linear' slope='3.2' intercept='-1.1'/%3E%3CfeFuncB type='linear' slope='3.2' intercept='-1.1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: var(--grain-size);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes floor-settle {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes plane-settle {
+  from {
+    transform: rotateX(calc(var(--floor-tilt) + 6deg));
+  }
+  to {
+    transform: rotateX(var(--floor-tilt));
+  }
+}
+
+@keyframes sun-drift {
+  from {
+    background-position:
+      0 0,
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      -4% 3%,
+      3% 0,
+      12% 0;
+  }
+}
+
+@keyframes gleam-sweep {
+  from {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(320%) skewX(-18deg);
+  }
+}
+
+@keyframes cell-open {
+  0%,
+  60% {
+    clip-path: inset(-1em -1em 0 -1em);
+  }
+  100% {
+    clip-path: inset(-1em -1em -2em -1em);
+  }
+}
+
+@keyframes letter-in {
+  from {
+    transform: translate(calc(var(--c) * -0.4em), 105%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes rule-draw {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 0.85;
+  }
+}
+
+@keyframes sheen-pass {
+  0% {
+    opacity: 0;
+    background-position: 130% 0;
+  }
+  15%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    background-position: -30% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor,
+  .plane,
+  .sun,
+  .veil,
+  .hero::before,
+  .cell,
+  .letter,
+  .rule {
+    animation: none;
+  }
+
+  .cell {
+    clip-path: none;
+  }
+
+  .rule {
+    opacity: 0.85;
+  }
+
+  .gleam,
+  .sheen {
+    display: none;
+  }
+}
