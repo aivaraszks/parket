@@ -9,6 +9,7 @@ Handoff file for the main session. Updated after every phase change so work can 
 
 ## Committed
 
+- `v0.3.1`: wall corners mitred (no colour z-fighting at corners), inverted drag-to-look. Deployed.
 - `v0.3.0`: dock + tray redesign (full-screen 3D, dock, Camera menu, Colour without a mode, phone plan editor action bar + card, faster landing CTA). 884 tests, axe 0. Deployed.
 - `v0.2.0`: share by link, multiple projects, landing Continue. Deployed.
 - `v0.1.0`: wall/door/ceiling/skirting colouring, compact phone UI, 3D tap select on the Surfaces tab (674 tests, axe 0). Deployed.

@@ -201,6 +201,8 @@ export class CameraRig {
     this.controls = new OrbitControls(this.camera, element);
     this.controls.enableDamping = !reducedMotion;
     this.controls.dampingFactor = 0.12;
+    // Inverted look: dragging right turns the view left, like pushing off the walls.
+    this.controls.rotateSpeed = -1;
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 0.4;
     this.controls.maxDistance = 60;

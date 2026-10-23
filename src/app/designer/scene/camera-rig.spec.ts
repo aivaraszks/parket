@@ -140,6 +140,10 @@ describe('CameraRig frame', () => {
     expect(rig.camera.position.y).not.toBeCloseTo(full);
   });
 
+  it('inverts the drag-to-look direction', () => {
+    expect(rigAt().controls.rotateSpeed).toBe(-1);
+  });
+
   it('scales the pan speed by canvas height over frame height', () => {
     const rig = rigAt();
     expect(rig.controls.panSpeed).toBe(1);

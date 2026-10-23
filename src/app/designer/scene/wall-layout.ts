@@ -65,3 +65,29 @@ function skirtingRuns(length: number, openings: readonly ShapeOpening[]): [numbe
   }
   return runs;
 }
+
+/** How far each end of a wall's outer face sits beyond (+) or short of (-) its inner face end. */
+export interface WallMitre {
+  start: number;
+  end: number;
+}
+
+/**
+ * Mitre offsets per wall, from the outer polygon (the outline offset by the wall thickness), so
+ * adjacent walls meet exactly on the plane through the inner and outer corner.
+ */
+export function wallMitres(walls: readonly WallLayout[], outer: readonly Vec2[]): WallMitre[] {
+  const n = walls.length;
+  const along = (wall: WallLayout, p: Vec2, from: Vec2) =>
+    (p.x - from.x) * wall.dir.x + (p.y - from.y) * wall.dir.y;
+  return walls.map((wall) => {
+    const endVertex = {
+      x: wall.origin.x + wall.dir.x * wall.length,
+      y: wall.origin.y + wall.dir.y * wall.length,
+    };
+    return {
+      start: along(wall, outer[wall.index], wall.origin),
+      end: along(wall, outer[(wall.index + 1) % n], endVertex),
+    };
+  });
+}

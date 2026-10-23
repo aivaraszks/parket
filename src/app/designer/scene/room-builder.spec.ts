@@ -1,4 +1,4 @@
-import { MeshStandardMaterial } from 'three';
+import { Mesh, MeshStandardMaterial, Vector3 } from 'three';
 import { describe, expect, it, vi } from 'vitest';
 import { SurfaceHit, SurfacePaint } from '../plan/paint';
 import { RoomShape } from '../plan/room-shape';
@@ -214,5 +214,122 @@ describe('RoomBuilder surfaces', () => {
     b.setHighlight(null);
     expect(glow('a')).toBe(1);
     b.dispose();
+  });
+});
+
+describe('wall corners', () => {
+  type Tri = { v: Vector3[]; n: Vector3; mesh: Mesh; pts: Vector3[] };
+
+  function wallTriangles(shape: RoomShape): Tri[] {
+    const b = new RoomBuilder();
+    b.setRoom(shape);
+    b.group.updateMatrixWorld(true);
+    const tris: Tri[] = [];
+    for (const mesh of b.pickables) {
+      if ((mesh.userData['surface'] as { kind: string }).kind !== 'wall') {
+        continue;
+      }
+      const geo = mesh.geometry;
+      const pos = geo.getAttribute('position');
+      const index = geo.getIndex();
+      const count = index ? index.count : pos.count;
+      for (let k = 0; k < count; k += 3) {
+        const v = [0, 1, 2].map((o) =>
+          new Vector3()
+            .fromBufferAttribute(pos, index ? index.getX(k + o) : k + o)
+            .applyMatrix4(mesh.matrixWorld),
+        );
+        const n = new Vector3().subVectors(v[1], v[0]).cross(new Vector3().subVectors(v[2], v[0]));
+        if (n.length() < 1e-9) {
+          continue;
+        }
+        n.normalize();
+        // Interior sample points of the triangle.
+        const pts: Vector3[] = [];
+        for (const [u, w] of [
+          [0.2, 0.2],
+          [0.6, 0.2],
+          [0.2, 0.6],
+          [1 / 3, 1 / 3],
+          [0.1, 0.45],
+          [0.45, 0.1],
+        ]) {
+          pts.push(
+            v[0]
+              .clone()
+              .multiplyScalar(1 - u - w)
+              .addScaledVector(v[1], u)
+              .addScaledVector(v[2], w),
+          );
+        }
+        tris.push({ v, n, mesh, pts });
+      }
+    }
+    return tris;
+  }
+
+  /** Whether `p` (already on the triangle's plane) lies strictly inside the triangle. */
+  function containsPoint(t: Tri, p: Vector3): boolean {
+    const [a, b, c] = t.v;
+    const signs = [
+      new Vector3().subVectors(b, a).cross(new Vector3().subVectors(p, a)).dot(t.n),
+      new Vector3().subVectors(c, b).cross(new Vector3().subVectors(p, b)).dot(t.n),
+      new Vector3().subVectors(a, c).cross(new Vector3().subVectors(p, c)).dot(t.n),
+    ];
+    return signs.every((d) => d > 1e-9);
+  }
+
+  const overlaps = (shape: RoomShape): number => {
+    const tris = wallTriangles(shape);
+    let clashes = 0;
+    for (let i = 0; i < tris.length; i++) {
+      for (let j = i + 1; j < tris.length; j++) {
+        const p = tris[i];
+        const q = tris[j];
+        if (p.mesh.material === q.mesh.material || p.n.dot(q.n) < 0.999) {
+          continue;
+        }
+        if (Math.abs(p.n.dot(q.v[0]) - p.n.dot(p.v[0])) > 1e-6) {
+          continue;
+        }
+        if (p.pts.some((pt) => containsPoint(q, pt)) || q.pts.some((pt) => containsPoint(p, pt))) {
+          clashes++;
+        }
+      }
+    }
+    return clashes;
+  };
+
+  const lShape: RoomShape = {
+    outline: [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 2 },
+      { x: 2, y: 2 },
+      { x: 2, y: 4 },
+      { x: 0, y: 4 },
+    ],
+    wallIds: ['a', 'b', 'c', 'd', 'e', 'f'],
+    height: 2.7,
+    openings: [{ id: 'win', kind: 'window', wall: 0, start: 1, end: 2.5, bottom: 0.9, top: 2.1 }],
+  };
+  const rect: RoomShape = {
+    outline: [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ],
+    wallIds: ['a', 'b', 'c', 'd'],
+    height: 2.7,
+    openings: [],
+  };
+
+  it('never overlaps coplanar faces of different walls at convex corners', () => {
+    expect(overlaps(rect)).toBe(0);
+  });
+
+  it('never overlaps coplanar faces of different walls at concave corners', () => {
+    expect(overlaps(lShape)).toBe(0);
   });
 });

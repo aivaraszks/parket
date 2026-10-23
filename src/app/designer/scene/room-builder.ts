@@ -19,7 +19,7 @@ import {
   Vector2,
 } from 'three';
 import { autoDoorColor, SurfaceHit, SurfacePaint, SurfaceRef } from '../plan/paint';
-import { interiorAngles, offsetPolygon, Vec2 } from '../plan/polygon';
+import { offsetPolygon, Vec2 } from '../plan/polygon';
 import { RoomShape, ShapeOpening } from '../plan/room-shape';
 import {
   createCeilingMaterial,
@@ -31,15 +31,13 @@ import {
   createWallMaterial,
 } from './materials';
 import { HIGHLIGHT_COLOR, highlightIntensity } from './highlight';
-import { SKIRTING_HEIGHT, WallLayout, wallLayout } from './wall-layout';
+import { SKIRTING_HEIGHT, WallLayout, wallLayout, WallMitre, wallMitres } from './wall-layout';
 
 /** Wall thickness (metres), growing outward from the inner face. */
 export const WALL_THICKNESS = 0.15;
 export const FLOOR_THICKNESS = 0.014;
 const SKIRTING_THICKNESS = 0.014;
 const SUBFLOOR_DEPTH = 0.2;
-/** Interior angles below this get a corner prism (the wedge outside a convex corner). */
-const CONVEX_LIMIT = 179.9;
 
 const FRAME_BAR = 0.045;
 const FRAME_DEPTH = 0.06;
@@ -88,7 +86,11 @@ function skyTexture(): CanvasTexture {
  * Windows are holes; openings that reach the floor (doors) are notches in the bottom edge, as a
  * hole may not touch the outline.
  */
-export function buildWallGeometry(wall: WallLayout, height: number): BufferGeometry {
+export function buildWallGeometry(
+  wall: WallLayout,
+  height: number,
+  mitre: WallMitre = { start: 0, end: 0 },
+): BufferGeometry {
   const notches = wall.openings.filter((o) => o.bottom <= 1e-6);
   const holes = wall.openings.filter((o) => o.bottom > 1e-6);
   const shape = new Shape();
@@ -114,7 +116,31 @@ export function buildWallGeometry(wall: WallLayout, height: number): BufferGeome
   }
   const geometry = new ExtrudeGeometry(shape, { depth: WALL_THICKNESS, bevelEnabled: false });
   geometry.translate(0, 0, -WALL_THICKNESS);
+  applyMitre(geometry, wall.length, mitre);
   return geometry;
+}
+
+/**
+ * Slide the end faces along the wall so each is cut on the mitre plane through the inner corner
+ * and the outer corner: neighbouring walls then meet on that plane and never overlap, so no face of
+ * one wall is coplanar with a face of another (that z-fought once walls had different colours).
+ */
+function applyMitre(geometry: BufferGeometry, length: number, mitre: WallMitre): void {
+  if (Math.abs(mitre.start) < 1e-9 && Math.abs(mitre.end) < 1e-9) {
+    return;
+  }
+  const pos = geometry.getAttribute('position');
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const depth = -pos.getZ(i) / WALL_THICKNESS;
+    if (Math.abs(x) < 1e-9) {
+      pos.setX(i, x + mitre.start * depth);
+    } else if (Math.abs(x - length) < 1e-9) {
+      pos.setX(i, x + mitre.end * depth);
+    }
+  }
+  pos.needsUpdate = true;
+  geometry.computeVertexNormals();
 }
 
 /** A flat polygon (scene x, z) at height `y`, facing down (ceilings). */
@@ -262,8 +288,8 @@ export class RoomBuilder {
     const t = WALL_THICKNESS;
     const outer = offsetPolygon(outline, t);
     const inset = offsetPolygon(outline, -SKIRTING_THICKNESS);
-    const angles = interiorAngles(outline);
     const walls = wallLayout(shape);
+    const mitres = wallMitres(walls, outer);
     const n = outline.length;
 
     const wallIds = walls.map((wall) => shape.wallIds[wall.index] ?? `w${wall.index}`);
@@ -276,10 +302,17 @@ export class RoomBuilder {
       const id = wallIds[wall.index];
       const wallMaterial = this.wallMaterials.get(id) as MeshStandardMaterial;
       const frame = this.addFrame(wall);
-      this.addGeometry(frame, buildWallGeometry(wall, H), wallMaterial, true, true, {
-        kind: 'wall',
-        id,
-      });
+      this.addGeometry(
+        frame,
+        buildWallGeometry(wall, H, mitres[wall.index]),
+        wallMaterial,
+        true,
+        true,
+        {
+          kind: 'wall',
+          id,
+        },
+      );
       for (const o of wall.openings) {
         if (o.kind === 'door') {
           this.buildDoor(frame, o);
@@ -309,30 +342,6 @@ export class RoomBuilder {
           { kind: 'skirting' },
         );
       }
-    }
-
-    // Close the wedge outside every convex corner.
-    for (let i = 0; i < n; i++) {
-      if (angles[i] >= CONVEX_LIMIT) {
-        continue;
-      }
-      const prev = walls[(i - 1 + n) % n].normal;
-      const next = walls[i].normal;
-      const v = outline[i];
-      const wedge = [
-        v,
-        { x: v.x + prev.x * t, y: v.y + prev.y * t },
-        outer[i],
-        { x: v.x + next.x * t, y: v.y + next.y * t },
-      ];
-      this.addGeometry(
-        this.shell,
-        buildPrismGeometry(wedge, 0, H),
-        this.wallMaterials.get(wallIds[i]) as MeshStandardMaterial,
-        true,
-        true,
-        { kind: 'wall', id: wallIds[i] },
-      );
     }
 
     this.addGeometry(
