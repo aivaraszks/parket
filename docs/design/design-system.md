@@ -78,4 +78,162 @@ Letter mask: each letter sits in a cell clipped (`clip-path`) at its bottom edge
 
 ## Spacing
 
-`--space-6: 1.5rem` so far; extend the scale as needed.
+4px base: `--space-1` .25rem, `-2` .5, `-3` .75, `-4` 1, `-5` 1.25, `-6` 1.5, `-8` 2, `-10` 2.5, `-12` 3 (rem). Radii: `--radius-sm` 6px, `-md` 10px, `-lg` 16px, `--radius-pill` 999px.
+
+---
+
+# Designer UI (`/designer`)
+
+Dark theme only (warm dark glass); the landing is also dark, so there is no light theme. If one is added later, override the Surfaces and Text tokens under `[data-theme='light']`. Components must use only tokens.
+
+## Typography (UI)
+
+- `--font-ui`: **Inter** (Google Fonts, weights 400/500/600), then system-ui stack. Frontend: add `family=Inter:wght@400;500;600` to the fonts link in `src/index.html`. Archivo Black stays display-only (wordmark, landing).
+- Scale: `--text-xs` 12px (hints, units), `-sm` 14px (labels, tabs, buttons), `-md` 16px (body, inputs; 16px stops iOS zoom on focus), `-lg` 18px, `-xl` 20px (panel titles, estimate figures), `-2xl` 24px (planks to buy).
+- Line height `--leading-normal` 1.5 (body), `--leading-tight` 1.25 (headings, figures). Weights `--weight-regular/medium/semibold`. Caps labels use `--tracking-caps` 0.14em. Use `font-variant-numeric: tabular-nums` for numbers.
+
+## Surfaces and text (contrast)
+
+Ratios are computed (WCAG relative luminance). "Worst case" = panel over a pure white view pixel (blend lum 0.032); "typical" = over the solid base `--surface-solid` (lum 0.0084).
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--surface-overlay` | `rgb(30 21 14 / 0.88)` | side panel, bottom sheet, top-bar chips; with `backdrop-filter: var(--surface-blur)` |
+| `--surface-solid` | `#1e150e` | fallback when `backdrop-filter` is unsupported (use instead of overlay), focus halo |
+| `--surface-raised` | `#2b1f16` | toast, popover, cards |
+| `--surface-dialog` | `#231810` | dialog; backdrop `--surface-scrim` |
+| `--surface-hairline` | `rgb(255 240 220 / 0.14)` | dividers only (decorative, no contrast need) |
+| `--field-bg` / `-hover` | `rgb(255 245 230 / 0.08 / 0.14)` | number input, segmented, button hover fill |
+
+| Text pair | Typical | Worst case | AA |
+| --- | --- | --- | --- |
+| `--text-primary` `#f6efe6` on overlay | 15.8:1 | 11.2:1 | pass |
+| `--text-muted` `#cdbfae` on overlay | 10.0:1 | 7.1:1 | pass |
+| `--text-accent` `#e0a85a` on overlay | 8.5:1 | 6.0:1 | pass |
+| `--text-error` `#ff9b8a` on overlay | 11.0:1 | 8.8:1 | pass |
+| `--text-primary` on `--surface-raised` / `--surface-dialog` | 14.5:1 / 15.2:1 | n/a (opaque) | pass |
+| `--text-on-accent` `#1e150e` on `--accent` `#e0a85a` | 8.5:1 | n/a | pass |
+| `--text-on-accent` on `--accent-hover` `#ecbb74` / `--accent-active` `#c98f44` | 10.2:1 / 6.4:1 | n/a | pass |
+
+Non-text (need 3:1): `--control-border` `rgb(255 240 220 / 0.45)` on overlay 4.2:1 typical, 3.6:1 worst case. Accent fill (slider fill, selected ring, active tab bar) on overlay 8.5:1. Focus ring colour `--focus-ring-color` `#ffd58a` on `--surface-solid` 12.9:1.
+
+## Focus ring
+
+`--focus-ring`: 2px dark halo (`--focus-ring-halo`) plus 2px `--focus-ring-color` outside it, applied with `box-shadow` on `:focus-visible` (global rule in `styles.scss`; `outline: none` there is replaced by the ring, never removed). The dark halo makes the gold ring readable on any background, including light wall colours, the 3D view and the landing floor (halo vs ring 12.9:1). On elements that clip their shadow (overflow hidden), use `outline: 2px solid var(--focus-ring-color); outline-offset: 2px`. Canvas gets the same ring. Windows high contrast: add `@media (forced-colors: active) { :focus-visible { outline: 2px solid CanvasText; } }`.
+
+## Component specs
+
+All targets at least `--target-min` (44px); gap between adjacent targets at least `--space-2`. Disabled: `opacity: var(--disabled-opacity)`, `cursor: not-allowed`, value stays visible. Transition `--dur-fast` on colour/background, none under reduced motion.
+
+**Slider field** (label, range, number input, hint). Label `--text-sm` medium `--text-primary` left; number input right (width 5.5rem) with unit `--text-sm` `--text-muted`. Track `--track-height` 4px, `--radius-pill`; unfilled `--control-border`, filled `--accent`. Thumb `--thumb-size` 28px circle, fill `--text-primary`, 2px `--surface-solid` border, `--shadow-toast`; 44px transparent hit area; hover thumb ring `--accent`; active thumb scale 1.1. Hint `--text-xs` `--text-muted`; error hint `--text-error` with an icon (not colour only). Angle ticks: 1px marks `--control-border` at 0/45/90/135.
+
+**Number input**: height 44px, `--field-bg`, 1px `--control-border`, `--radius-md`, `--text-md` `--text-primary`, right-aligned numbers. Hover `--field-bg-hover`. Focus: `--focus-ring`. Error: border `--text-error` + hint.
+
+**Swatch** (wall/ceiling colour, wood card): 44px square (wood card: 44px swatch + name `--text-sm`), `--radius-md`, 1px `--control-border` always (dark colours stay visible). Selected: 2px `--accent` ring at 2px offset plus a check icon (dark or light chosen by swatch luminance) in the corner. Hover: ring `--control-border`. Custom colour: a swatch with a "+" icon, same size.
+
+**Tabs**: five equal-width tabs (scrollable row if not fitting), height 44px, `--text-sm` medium. Inactive `--text-muted`; active `--text-primary` with a 2px `--accent` bar under it. Hover `--field-bg`. Focus ring inset-safe (outline variant). Divider `--surface-hairline`.
+
+**Segmented control** (Finish): `--field-bg` track, 1px `--control-border`, `--radius-md`; options 44px high; selected option fill `--accent` with `--text-on-accent`.
+
+**Buttons** (height 44px, `--radius-md`, `--text-sm` semibold, padding `--space-4`): Primary = `--accent` fill, `--text-on-accent`; hover `--accent-hover`, active `--accent-active`. Secondary (Reset design, Close) = transparent, 1px `--control-border`, `--text-primary`; hover `--field-bg-hover`. Icon button = 44px square, Secondary look. Save image is Primary; Views is Secondary. Busy: spinner replaces icon, button disabled-styled but text stays legible (use opacity .7 not .45 plus `aria-busy`).
+
+**Bottom-sheet handle**: a 44px-tall button across the sheet top; the visible bar is `--sheet-handle-w` x `--sheet-handle-h` (40x4), `--radius-pill`, `--control-border` colour, centred. Sheet: `--surface-overlay` + blur, top radius `--radius-lg`, `--shadow-panel`, stops `--sheet-peek/half/full`, move `--dur-sheet` `--ease-out` (none under reduced motion), `z-index: var(--z-sheet)`. Desktop panel: `--panel-width` wide, no top radius, left hairline.
+
+**Toast**: `--surface-raised`, 1px `--surface-hairline`, `--radius-md`, `--shadow-toast`, `--text-sm` `--text-primary`, padding `--space-3` `--space-4`; action link `--text-accent` semibold, underlined. Error toast adds a left 3px `--text-error` bar and an icon. Placed above the sheet peek, bottom-centre, max-width 28rem; enter fade + 8px rise `--dur-base`. `z-index: var(--z-toast)`.
+
+**Dialog**: `--surface-dialog`, `--radius-lg`, `--shadow-dialog`, padding `--space-6`, max-width 26rem; scrim `--surface-scrim` (+ blur 4px). Title `--text-xl` semibold; body `--text-md` `--text-muted`; image preview `--radius-md` max-height 50vh; Close = Primary button, full width on phone.
+
+**Popover (Views menu)**: like Toast surface, `--z-popover`, items 44px high, hover `--field-bg`.
+
+**Loader / message card**: bg `--color-floor-dark`; text `--text-primary` `--text-md`; indeterminate bar 4px `--accent` on `--control-border`.
+
+## Landing CTA pill ("Design your floor")
+
+A link (`routerLink="/designer"`), 48px high (`--cta-height`), padding `0 var(--cta-pad-x)`, `--radius-pill`, `--font-ui` `--text-sm` semibold, uppercase, `--cta-tracking` 0.2em, white text (`--color-text-on-floor`), 1px `--cta-border`, fill `--cta-bg` with `backdrop-filter: blur(6px)`, `--shadow-text`-style soft shadow `--shadow-rule`. Hover and focus: fill `--cta-bg-hover` `#f0b860`, text `--cta-text-hover` (dark, 10.1:1); focus also shows `--focus-ring`. Active: fill `--accent-active`. Appears after the sequence: fade + 8px rise over `--dur-cta-in` starting `--delay-cta` (hidden with `visibility` until then; shown at once on early input or reduced motion). The small kicker "Herringbone, in 3D" above: `--text-xs`, caps, `--tracking-caps`, white at 0.85 opacity over the veil (about 6:1).
+Contrast: white on `--cta-bg` over the brightest sun-lit oak (lum about 0.49) blends to lum about 0.11, so 6.6:1 (AA 4.5:1 passes); over normal oak it is higher. Estimated; verify on a screenshot.
+
+## Breakpoints
+
+Media queries cannot read custom properties, so values are fixed constants: phone sheet below 900px; desktop side panel at min-width 900px; landscape phone side panel at min-width 700px and max-height 499px. Panel width `--panel-width` 360px.
+
+## Motion (UI)
+
+`--dur-fast` 120ms, `--dur-base` 200ms, `--dur-sheet` 320ms, `--dur-fade-wood` 300ms with `--ease-out`. Reduced motion: no transitions on sheet, toast, wood fade, camera.
+
+## Wood species (for `species.ts`)
+
+`bases` = four plank colours (the instance tint picks among them, plus per-plank lightness variation of `tint`, as a fraction, e.g. 0.06 = +-6%). `grain` = colour of grain lines, arches and pores. `grainStrength` scales grain line opacity (0-1). Landing golden oak equals `golden-oak`.
+
+| id | name | bases | grain | tint | grainStrength | default finish |
+| --- | --- | --- | --- | --- | --- | --- |
+| `golden-oak` | Golden oak | `#c58a4a` `#b97c3e` `#d39a5a` `#a86c34` | `#6b3f1c` | 0.06 | 0.8 | satin |
+| `natural-oak` | Natural oak | `#d9b98a` `#cfae7c` `#e2c699` `#c4a171` | `#8a6a3f` | 0.06 | 0.7 | matte |
+| `smoked-oak` | Smoked oak | `#6e5238` `#624830` `#7a5d41` `#57402a` | `#2e1f12` | 0.07 | 0.7 | matte |
+| `walnut` | Walnut | `#6b4426` `#5e3a1f` `#76502e` `#53341c` | `#2a160a` | 0.08 | 0.9 | satin |
+| `ash` | Ash | `#e0d0b2` `#d6c4a3` `#e8dac0` `#cdba98` | `#9a8260` | 0.05 | 0.6 | matte |
+| `whitewashed-oak` | Whitewashed oak | `#e6dccb` `#ddd1bd` `#eee6d6` `#d3c6b0` | `#a99a82` | 0.04 | 0.5 | matte |
+
+Wood card swatch: the first base colour with a faint diagonal of the grain colour (flat colour is acceptable).
+
+## Wall and ceiling presets
+
+Shared list for both pickers (names are the accessible names). Defaults: wall = Warm white, ceiling = White. Each swatch needs the always-on 1px border (Charcoal and White both vanish on the panel otherwise).
+
+| id | name | hex |
+| --- | --- | --- |
+| `white` | White | `#f7f5f0` |
+| `warm-white` | Warm white | `#efe9df` |
+| `linen` | Linen | `#e4d8c5` |
+| `sand` | Sand | `#d2bfa0` |
+| `sage` | Sage | `#b5bfa5` |
+| `dusty-blue` | Dusty blue | `#a9b9c4` |
+| `terracotta` | Terracotta | `#c08a6e` |
+| `charcoal` | Charcoal | `#3d3a38` |
+
+---
+
+# Plan editor (`/designer/plan`)
+
+Dark only, same warm glass as the designer. Full visual spec per part: `docs/design/components/plan-editor.md`. Tokens are `--plan-*` in `src/styles.scss`. Everything in the SVG is drawn at constant **screen** size (`vector-effect: non-scaling-stroke`, radii and label size divided by zoom in code); only geometry follows the zoom.
+
+## Canvas colours and contrast
+
+Plan background `--plan-bg` `#1a110a` (luminance 0.0064, solid, no blur). Non-text ratios are computed against it (WCAG 1.4.11 needs 3:1).
+
+| Token | Value | Ratio on `--plan-bg` | Use |
+| --- | --- | --- | --- |
+| `--plan-grid-minor` | `#75624d` | 3.2:1 | 10 cm lines, 1px |
+| `--plan-grid-major` | `#9a8468` | 5.2:1 | 1 m lines, 1px |
+| `--plan-wall` | `#e8d9c4` | 13.4:1 | wall line, 3px |
+| `--plan-wall-hover` | `#f6efe6` | 15.8:1 | hover, 4px |
+| `--plan-wall-selected` / handle stroke / angle text | `--accent` `#e0a85a` | 8.8:1 | selected, 5px |
+| `--plan-window` | `#9cc3d6` | 9.9:1 | window symbol |
+| `--plan-ghost-color` | `--text-muted` `#cdbfae` | 10.5:1 | ghost "+" |
+| `--plan-error` | `#ff9b8a` | 9.1:1 | invalid state |
+| `--plan-snap` | `#ffd58a` | 13.4:1 | snap indicator |
+| `--plan-room-fill` | accent at 10% | decorative | room interior |
+
+- Walls vs the minor grid (worst neighbour): 4.2:1. Accent vs the minor grid is 2.75:1, so every accent or error element that crosses the grid sits on a `--plan-casing` (`--plan-bg` stroke, `--plan-casing-extra` wider than the element): the measured pair is then the element vs the casing (8.8:1 and 9.1:1). Handles have this casing, selected walls too.
+- Grid density: minor lines draw only when 10 cm is at least 8 px on screen, major only when 1 m is at least 16 px. They switch off, they never fade (fading would break 3:1). At 20 m visible width on a 360 px phone only the major grid shows.
+- Text (AA 4.5:1): labels `--text-primary` with a `--plan-label-halo` stroke (4px, `paint-order: stroke`) on the plan 15.8:1, worst case over a major grid line 10:1. Angle readout `--accent` 8.8:1. Badge `--text-on-accent` on `--accent` 8.5:1. Chip and card text on `--surface-raised`: primary 14.5:1, muted 8.9:1.
+- Focus ring `--focus-ring` on every SVG item: dark halo plus `#ffd58a`, 13.4:1 against the plan and 4.2:1 or more against the minor grid.
+
+## Sizes (screen px at 16px root)
+
+| Element | Token | Value |
+| --- | --- | --- |
+| Hit area (corner, wall stroke, "+", opening, buttons) | `--plan-hit` = `--target-min` | 44 |
+| Corner handle radius / selected | `--plan-handle-r` / `-selected` | 7 / 9 |
+| Wall grip (selected wall midpoint) | `--plan-grip-w` x `-h` | 28 x 10 |
+| Ghost "+" radius | `--plan-ghost-r` | 9 |
+| Door jamb tick | `--plan-jamb-len` | 8 |
+| Snap ring radius | `--plan-snap-r` | 5 |
+| Label | `--plan-label-size` | 12 (minimum) |
+
+## Layout tokens
+
+`--plan-bar-h` 56px top bar; bottom panel stops `--plan-panel-collapsed` 20% and `--plan-panel-expanded` 60% (sheet tokens otherwise: `--surface-overlay`, `--surface-blur`, `--radius-lg` top radius, `--shadow-panel`, `--dur-sheet`, `--ease-out`); side panel `--panel-width` at min-width 900px and in landscape phones, same breakpoints as the designer. The overlay sits at `--z-plan` 35 (above sheet 20 and popover 30, below toast 40 so "Started over. Undo" shows over it, and below dialog 50).
+
+## Reduced motion, forced colours
+
+No transitions or pans animate under `prefers-reduced-motion`. Under `forced-colors: active` map wall and handle strokes to `CanvasText`, selected to `Highlight`, grid to `GrayText`, errors to `Mark`; shapes (dash, thicker stroke, symbol) already carry the meaning.

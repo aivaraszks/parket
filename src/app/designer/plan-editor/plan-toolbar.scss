@@ -1,0 +1,184 @@
+@use '../ui/shared';
+
+// The host takes no box: the bar and the tools are grid items of the editor layout.
+:host {
+  display: contents;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--plan-bar-h);
+  padding: 0 var(--space-2);
+  background: var(--surface-solid);
+  border-bottom: 1px solid var(--surface-hairline);
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--surface-overlay);
+    backdrop-filter: var(--surface-blur);
+  }
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+
+  &:focus-visible {
+    box-shadow: none;
+    outline: none;
+  }
+
+  @media (min-width: 900px) {
+    text-align: left;
+    padding-left: var(--space-2);
+  }
+}
+
+.btn {
+  @include shared.button;
+}
+
+// Done is after the title in the DOM (initial focus), but shows first.
+[data-action='done'] {
+  order: -1;
+}
+
+.tool {
+  padding: 0 var(--space-3);
+}
+
+.icon-only {
+  width: var(--target-min);
+  padding: 0;
+}
+
+.icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.text {
+  @media (max-width: 439px) {
+    display: none;
+  }
+}
+
+.tools {
+  grid-area: tools;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--plan-bg);
+
+  // Phone: the tools float in the corner of the canvas.
+  @media (max-width: 899px) {
+    grid-area: canvas;
+    z-index: 1;
+    align-self: end;
+    justify-self: end;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    background: transparent;
+    pointer-events: none;
+
+    > * {
+      pointer-events: auto;
+    }
+
+    .btn {
+      background: var(--surface-overlay);
+    }
+  }
+}
+
+.bar .switch {
+  flex: none;
+  padding: 0 var(--space-2);
+}
+
+// Snap switch (same look as the Sunlight switch)
+.switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+}
+
+.track {
+  @include shared.colour-transition;
+  position: relative;
+  flex: none;
+  width: 3rem;
+  height: 1.75rem;
+  background: var(--field-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-pill);
+}
+
+.knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 1.25rem;
+  height: 1.25rem;
+  background: var(--text-primary);
+  border: 2px solid var(--surface-solid);
+  border-radius: 50%;
+  box-sizing: border-box;
+  transition: transform var(--dur-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+input:checked + .track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input:checked + .track .knob {
+  transform: translateX(1.25rem);
+}
+
+input:focus-visible + .track {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--focus-ring-halo);
+}
+
+.switch-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}

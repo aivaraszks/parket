@@ -1,0 +1,22 @@
+:host {
+  display: block;
+  font-family: var(--font-ui);
+}
+
+.line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+
+  strong {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+  }
+}

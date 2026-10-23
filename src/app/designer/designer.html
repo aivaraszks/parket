@@ -1,0 +1,18 @@
+<main
+  class="stage"
+  [attr.inert]="editorOpen() ? '' : null"
+  (pointerdown)="onStagePointer()"
+  (keydown)="onStagePointer()"
+>
+  <h1 class="visually-hidden">Floor designer</h1>
+  <app-view-toolbar />
+  <app-viewport />
+  <app-viewport-status />
+</main>
+<app-controls-sheet [attr.inert]="editorOpen() ? '' : null" [(stop)]="stop" [(tab)]="tab" />
+<router-outlet (activate)="editorOpen.set(true)" (deactivate)="onEditorClosed()" />
+<app-editor-loader />
+<app-toast-host />
+@if (exporter.fallbackUrl(); as url) {
+  <app-image-dialog [url]="url" (closed)="exporter.closeFallback()" />
+}

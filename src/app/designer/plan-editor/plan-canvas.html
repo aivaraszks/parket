@@ -1,0 +1,286 @@
+<svg
+  #svg
+  class="plan"
+  role="group"
+  tabindex="0"
+  data-plan
+  [attr.width]="size().w"
+  [attr.height]="size().h"
+  [attr.aria-label]="planLabel()"
+  [attr.aria-describedby]="session.hintVisible() ? hintId : null"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerCancel($event)"
+  (wheel)="onWheel($event)"
+  (keydown)="onKeydown($event)"
+  (focusin)="onFocusIn($event)"
+>
+  <g aria-hidden="true">
+    <path class="grid minor" [attr.d]="grid().minor" />
+    <path class="grid major" [attr.d]="grid().major" />
+    <polygon class="fill" [attr.points]="model().fill" />
+  </g>
+
+  <!-- Focusable layer: one stop per corner, wall and opening, in reading order. Drawn under the
+       walls so its focus ring shows around them; pointer input goes to the hit layer on top. -->
+  <g class="focus-layer">
+    @for (item of tabItems(); track item.key) {
+      @switch (item.kind) {
+        @case ('corner') {
+          <circle
+            class="stop"
+            role="button"
+            tabindex="0"
+            data-kind="corner"
+            [attr.data-id]="item.vm.id"
+            [attr.cx]="item.vm.x"
+            [attr.cy]="item.vm.y"
+            [attr.r]="metrics.handleSelected + 5"
+            [attr.aria-label]="item.vm.ariaLabel"
+            [attr.aria-pressed]="item.vm.selected"
+          />
+        }
+        @case ('wall') {
+          <line
+            class="stop wall-stop"
+            role="button"
+            tabindex="0"
+            data-kind="wall"
+            [attr.data-id]="item.vm.id"
+            [attr.x1]="item.vm.line.x1"
+            [attr.y1]="item.vm.line.y1"
+            [attr.x2]="item.vm.line.x2"
+            [attr.y2]="item.vm.line.y2"
+            [attr.aria-label]="item.vm.ariaLabel"
+            [attr.aria-pressed]="item.vm.selected"
+          />
+        }
+        @case ('opening') {
+          <rect
+            class="stop"
+            role="button"
+            tabindex="0"
+            data-kind="opening"
+            [attr.data-id]="item.vm.id"
+            [attr.transform]="item.vm.transform"
+            x="0"
+            y="-12"
+            height="24"
+            [attr.width]="item.vm.width"
+            [attr.aria-label]="item.vm.ariaLabel"
+            [attr.aria-pressed]="item.vm.selected"
+          />
+        }
+      }
+    }
+  </g>
+
+  <g aria-hidden="true" class="art">
+    @for (wall of model().walls; track wall.id) {
+      @if (wall.selected) {
+        <path class="casing" [attr.d]="wall.d" />
+      }
+      <path
+        class="wall"
+        [class.hover]="wall.hover"
+        [class.selected]="wall.selected"
+        [class.invalid]="wall.invalid"
+        [attr.d]="wall.d"
+      />
+    }
+
+    @for (o of model().openings; track o.id) {
+      <g
+        class="opening"
+        [class.door]="o.kind === 'door'"
+        [class.window]="o.kind === 'window'"
+        [class.hover]="o.hover"
+        [class.selected]="o.selected"
+        [class.invalid]="o.invalid"
+      >
+        @if (o.selected) {
+          <path class="casing" [attr.d]="o.jambs + o.leaf + o.glass" />
+        }
+        <path class="jamb" [attr.d]="o.jambs" />
+        @if (o.kind === 'door') {
+          <path class="arc" [attr.d]="o.arc" />
+          <path class="leaf" [attr.d]="o.leaf" />
+        } @else {
+          <path class="glass" [attr.d]="o.glass" />
+        }
+      </g>
+    }
+
+    @for (t of model().texts; track $index) {
+      <text
+        [class]="t.cls"
+        text-anchor="middle"
+        dominant-baseline="central"
+        [attr.transform]="'translate(' + t.x + ' ' + t.y + ') rotate(' + t.rot + ')'"
+      >
+        {{ t.text }}
+      </text>
+    }
+
+    @if (guides(); as g) {
+      @if (g.x !== null) {
+        <line class="guide" [attr.x1]="g.x" y1="0" [attr.x2]="g.x" [attr.y2]="size().h" />
+      }
+      @if (g.y !== null) {
+        <line class="guide" x1="0" [attr.y1]="g.y" [attr.x2]="size().w" [attr.y2]="g.y" />
+      }
+      <circle
+        class="snap-ring"
+        [attr.cx]="g.point.x"
+        [attr.cy]="g.point.y"
+        [attr.r]="metrics.handleSelected + 5"
+      />
+    }
+
+    @for (wall of model().walls; track wall.id) {
+      @if (wall.grip; as grip) {
+        <rect
+          class="grip"
+          [attr.x]="-metrics.gripW / 2"
+          [attr.y]="-metrics.gripH / 2"
+          [attr.width]="metrics.gripW"
+          [attr.height]="metrics.gripH"
+          [attr.rx]="metrics.gripH / 2"
+          [attr.transform]="'translate(' + grip.x + ' ' + grip.y + ') rotate(' + grip.rot + ')'"
+        />
+      }
+      @if (wall.plus; as plus) {
+        <g class="plus" [attr.transform]="'translate(' + plus.x + ' ' + plus.y + ')'">
+          <circle [attr.r]="metrics.ghost" />
+          <path d="M-4 0H4M0 -4V4" />
+        </g>
+      }
+    }
+
+    @for (c of model().corners; track c.id) {
+      <circle
+        class="handle"
+        [class.hover]="c.hover"
+        [class.selected]="c.selected"
+        [attr.cx]="c.x"
+        [attr.cy]="c.y"
+        [attr.r]="c.r"
+      />
+    }
+
+    @if (invalidGhost(); as ghost) {
+      @if (ghost.corner; as corner) {
+        <line
+          class="ghost-line"
+          [attr.x1]="corner.x"
+          [attr.y1]="corner.y"
+          [attr.x2]="ghost.pointer.x"
+          [attr.y2]="ghost.pointer.y"
+        />
+      }
+      <circle
+        class="ghost"
+        [attr.cx]="ghost.pointer.x"
+        [attr.cy]="ghost.pointer.y"
+        [attr.r]="metrics.handle"
+      />
+    }
+
+    @for (badge of model().badges; track $index) {
+      <g [attr.transform]="'translate(' + badge.x + ' ' + badge.y + ')'">
+        <rect
+          class="badge"
+          [attr.x]="-badge.w / 2"
+          y="-10"
+          [attr.width]="badge.w"
+          height="20"
+          rx="6"
+        />
+        <text class="badge-text" text-anchor="middle" dominant-baseline="central">
+          {{ badge.text }}
+        </text>
+      </g>
+    }
+  </g>
+
+  <!-- Pointer layer: invisible hit areas (44 px), later groups on top. -->
+  <g aria-hidden="true" class="hits">
+    @for (w of model().walls; track w.id) {
+      <line
+        class="hit wall-hit"
+        data-kind="wall"
+        [attr.data-id]="w.id"
+        [attr.x1]="w.line.x1"
+        [attr.y1]="w.line.y1"
+        [attr.x2]="w.line.x2"
+        [attr.y2]="w.line.y2"
+      />
+    }
+    @for (o of model().openings; track o.id) {
+      <rect
+        class="hit"
+        data-kind="opening"
+        [attr.data-id]="o.id"
+        [attr.transform]="o.transform"
+        x="0"
+        [attr.y]="-metrics.hit"
+        [attr.width]="o.width"
+        [attr.height]="metrics.hit * 2"
+      />
+    }
+    @for (w of model().walls; track w.id) {
+      @if (w.plus; as plus) {
+        <circle
+          class="hit plus-hit"
+          data-kind="plus"
+          [attr.data-id]="w.id"
+          [attr.cx]="plus.x"
+          [attr.cy]="plus.y"
+          [attr.r]="metrics.hit"
+        />
+      }
+    }
+    @for (c of model().corners; track c.id) {
+      <circle
+        class="hit corner-hit"
+        data-kind="corner"
+        [attr.data-id]="c.id"
+        [attr.cx]="c.x"
+        [attr.cy]="c.y"
+        [attr.r]="metrics.hit"
+      />
+    }
+  </g>
+</svg>
+
+<!-- The hint and the reason chip stack, so a refusal never covers the hint. -->
+<div class="top">
+  @if (session.hintVisible()) {
+    <div class="hint" [id]="hintId">
+      <p>
+        {{ hint.text }}
+        @if (hint.keyboard) {
+          <span class="keyboard">{{ hint.keyboard }}</span>
+        }
+      </p>
+      <button type="button" class="hint-close" aria-label="Close hint" (click)="dismissHint()">
+        Close
+      </button>
+    </div>
+  }
+
+  <div class="chip-region" role="status">
+    @if (session.chip(); as text) {
+      <p class="chip">
+        <svg class="chip-icon" viewBox="0 0 16 16" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
+          <path d="M8 4.5v4.2M8 10.6v1" stroke="currentColor" stroke-width="1.6" />
+        </svg>
+        {{ text }}
+      </p>
+    }
+  </div>
+</div>
+
+<p class="status">{{ status() }}</p>

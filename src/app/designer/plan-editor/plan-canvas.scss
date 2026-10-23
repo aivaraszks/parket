@@ -1,0 +1,397 @@
+:host {
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--plan-bg);
+  font-family: var(--font-ui);
+}
+
+.plan {
+  display: block;
+  width: 100%;
+  height: 100%;
+  // The canvas handles every gesture itself; the rest of the page scrolls normally.
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  &:focus-visible {
+    box-shadow: none;
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -4px;
+  }
+}
+
+.art {
+  pointer-events: none;
+}
+
+// ---- grid and fill ---------------------------------------------------------------------------
+
+.grid {
+  fill: none;
+  stroke-width: var(--plan-grid-width);
+  shape-rendering: crispEdges;
+
+  &.minor {
+    stroke: var(--plan-grid-minor);
+  }
+
+  &.major {
+    stroke: var(--plan-grid-major);
+  }
+}
+
+.fill {
+  fill: var(--plan-room-fill);
+  stroke: none;
+}
+
+// ---- walls -----------------------------------------------------------------------------------
+
+.wall,
+.leaf,
+.jamb {
+  fill: none;
+  stroke: var(--plan-wall);
+  stroke-width: var(--plan-wall-width);
+  stroke-linejoin: round;
+  stroke-linecap: butt;
+}
+
+.casing {
+  fill: none;
+  stroke: var(--plan-casing);
+  stroke-width: calc(var(--plan-wall-width-selected) + var(--plan-casing-extra) * 2);
+  stroke-linecap: butt;
+}
+
+.wall.hover,
+.opening.hover .leaf,
+.opening.hover .jamb {
+  stroke: var(--plan-wall-hover);
+  stroke-width: var(--plan-wall-width-hover);
+}
+
+.wall.selected,
+.opening.selected .jamb,
+.opening.selected .leaf {
+  stroke: var(--plan-wall-selected);
+  stroke-width: var(--plan-wall-width-selected);
+}
+
+.opening.selected .leaf {
+  stroke-width: var(--plan-wall-width);
+}
+
+.wall.invalid,
+.opening.invalid .jamb,
+.opening.invalid .leaf {
+  stroke: var(--plan-error);
+  stroke-width: var(--plan-wall-width-selected);
+  stroke-dasharray: var(--plan-dash);
+}
+
+.leaf {
+  stroke-width: var(--plan-door-leaf-width);
+}
+
+.arc {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: var(--plan-door-arc-width);
+}
+
+.glass {
+  fill: none;
+  stroke: var(--plan-window);
+  stroke-width: var(--plan-window-width);
+}
+
+.opening.selected .glass {
+  stroke: var(--plan-wall-selected);
+}
+
+// ---- handles, grip, plus ---------------------------------------------------------------------
+
+.handle {
+  fill: var(--plan-handle-fill);
+  stroke: var(--plan-handle-stroke);
+  stroke-width: var(--plan-handle-stroke-width);
+  paint-order: stroke;
+
+  &.hover {
+    fill: var(--field-bg-hover);
+  }
+
+  &.selected {
+    fill: var(--accent);
+    stroke: var(--plan-wall);
+  }
+}
+
+.grip {
+  fill: var(--accent);
+  stroke: var(--plan-casing);
+  stroke-width: var(--plan-casing-extra);
+  paint-order: stroke;
+}
+
+.plus {
+  circle {
+    fill: var(--plan-bg);
+    stroke: var(--plan-ghost-color);
+    stroke-width: var(--plan-ghost-width);
+  }
+
+  path {
+    fill: none;
+    stroke: var(--plan-ghost-color);
+    stroke-width: var(--plan-ghost-width);
+  }
+}
+
+// ---- text ------------------------------------------------------------------------------------
+
+.dim,
+.angle {
+  font-family: var(--font-ui);
+  font-size: var(--plan-label-size);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  fill: var(--plan-label-color);
+  stroke: var(--plan-label-halo);
+  stroke-width: var(--plan-label-halo-width);
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.dim.emphasised {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  fill: var(--plan-wall-selected);
+}
+
+.angle {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  fill: var(--plan-angle-color);
+}
+
+.badge {
+  fill: var(--plan-badge-bg);
+  stroke: var(--plan-casing);
+  stroke-width: var(--plan-casing-extra);
+  paint-order: stroke;
+}
+
+.badge-text {
+  fill: var(--plan-badge-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+// ---- snap and invalid feedback ---------------------------------------------------------------
+
+.guide {
+  stroke: var(--plan-snap);
+  stroke-width: var(--plan-snap-width);
+  stroke-dasharray: var(--plan-dash);
+}
+
+.snap-ring {
+  fill: none;
+  stroke: var(--plan-snap);
+  stroke-width: var(--plan-snap-width);
+}
+
+.ghost {
+  fill: none;
+  stroke: var(--plan-error);
+  stroke-width: var(--plan-handle-stroke-width);
+  stroke-dasharray: var(--plan-dash);
+}
+
+.ghost-line {
+  stroke: var(--plan-error);
+  stroke-width: var(--plan-snap-width);
+  stroke-dasharray: var(--plan-dash);
+}
+
+// ---- focus layer and hit layer ---------------------------------------------------------------
+
+.stop {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 3px;
+  pointer-events: none;
+  outline: none;
+  box-shadow: none;
+
+  &:focus-visible {
+    stroke: var(--focus-ring-color);
+  }
+}
+
+.wall-stop {
+  stroke-width: 3px;
+
+  &:focus-visible {
+    stroke-width: calc(var(--plan-wall-width-selected) + 8px);
+  }
+}
+
+.hit {
+  fill: transparent;
+  stroke: transparent;
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.wall-hit {
+  stroke-width: var(--plan-hit);
+  pointer-events: stroke;
+  cursor: grab;
+}
+
+.corner-hit {
+  cursor: grab;
+}
+
+.plus-hit {
+  cursor: copy;
+}
+
+// ---- overlays --------------------------------------------------------------------------------
+
+.top {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.hint {
+  display: flex;
+  pointer-events: auto;
+  align-items: flex-start;
+  gap: var(--space-3);
+  max-width: 34rem;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+
+  p {
+    flex: 1;
+    margin: 0;
+  }
+
+  .keyboard {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--text-muted);
+  }
+}
+
+.hint-close {
+  flex: none;
+  min-width: var(--target-min);
+  min-height: var(--target-min);
+  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: var(--weight-semibold) var(--text-sm) / 1 var(--font-ui);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--field-bg-hover);
+  }
+}
+
+.chip-region {
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: var(--plan-chip-max);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-toast);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  animation: chip-in var(--dur-base) var(--ease-out);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.chip-icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--plan-error);
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.status {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-overlay);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+@media (forced-colors: active) {
+  .wall,
+  .leaf,
+  .jamb,
+  .handle {
+    stroke: CanvasText;
+  }
+
+  .wall.selected,
+  .handle.selected {
+    stroke: Highlight;
+  }
+
+  .grid {
+    stroke: GrayText;
+  }
+
+  .wall.invalid {
+    stroke: Mark;
+  }
+}

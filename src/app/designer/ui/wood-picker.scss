@@ -1,0 +1,35 @@
+@use './shared';
+
+fieldset {
+  @include shared.choice-group;
+}
+
+@include shared.swatch;
+
+.options,
+fieldset .options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+}
+
+.card {
+  width: 100%;
+}
+
+// Faint diagonal of the grain colour over the plank colour.
+.chip {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 46%,
+      color-mix(in srgb, var(--grain) 45%, transparent) 50%,
+      transparent 54%
+    ),
+    var(--swatch);
+}
+
+.name {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-align: center;
+}

@@ -205,6 +205,92 @@
   background-size: var(--grain-size);
 }
 
+// Call to action: transparent until the opening sequence has finished. It stays focusable
+// (visibility would hide it during the first Tab keydown); focus or any key reveals it.
+.cta {
+  position: absolute;
+  top: min(calc(50% + max(6rem, 14vh)), calc(100dvh - 6.5rem - env(safe-area-inset-bottom, 0px)));
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  transform: translateX(-50%);
+  opacity: 0;
+  pointer-events: none;
+  animation: cta-in var(--dur-cta-in) var(--ease-out) var(--delay-cta) both;
+
+  &.revealed,
+  &:focus-within {
+    opacity: 1;
+    pointer-events: auto;
+    animation: none;
+  }
+}
+
+.kicker {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 0.85);
+  text-shadow: var(--shadow-text);
+  white-space: nowrap;
+
+  @media (max-width: 359px) {
+    display: none;
+  }
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3rem;
+  height: var(--cta-height);
+  padding: 0 var(--cta-pad-x);
+  background: var(--cta-bg);
+  border: 1px solid var(--cta-border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-rule);
+  backdrop-filter: blur(6px);
+  color: var(--color-text-on-floor);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--cta-tracking);
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--cta-bg-hover);
+    color: var(--cta-text-hover);
+  }
+
+  &:active {
+    background: var(--accent-active);
+  }
+}
+
+@keyframes cta-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+    pointer-events: none;
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -301,6 +387,21 @@
   }
 }
 
+// Short landscape phones: shrink the lockup and drop the kicker so the CTA stays on screen.
+@media (max-height: 480px) {
+  .lockup {
+    font-size: min(var(--text-wordmark), 18vh);
+  }
+
+  .cta {
+    top: min(calc(50% + 3rem), calc(100dvh - 4rem - env(safe-area-inset-bottom, 0px)));
+  }
+
+  .kicker {
+    display: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .floor,
   .plane,
@@ -324,5 +425,15 @@
   .gleam,
   .sheen {
     display: none;
+  }
+
+  .cta {
+    opacity: 1;
+    pointer-events: auto;
+    animation: none;
+  }
+
+  .pill {
+    transition: none;
   }
 }

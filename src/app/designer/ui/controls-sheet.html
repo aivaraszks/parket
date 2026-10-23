@@ -1,0 +1,48 @@
+<section class="sheet" aria-label="Design controls">
+  <button
+    type="button"
+    class="handle"
+    aria-label="Controls panel"
+    aria-controls="designer-sheet-body"
+    [attr.aria-expanded]="stop() !== 'peek'"
+    (click)="toggle()"
+    (pointerdown)="dragStart($event)"
+    (pointerup)="dragEnd($event)"
+    (pointercancel)="dragEnd($event)"
+  >
+    <span class="bar" aria-hidden="true"></span>
+  </button>
+  <app-estimate-summary class="summary" />
+  <app-tab-list class="tabs" [tabs]="tabs" [(selected)]="tab" (tabClicked)="onTabClicked($event)" />
+  <div class="body" id="designer-sheet-body" [attr.inert]="stop() === 'peek' ? '' : null">
+    @for (item of tabs; track item.id) {
+      @if (item.id === tab()) {
+        <div
+          class="panel"
+          role="tabpanel"
+          tabindex="0"
+          [id]="panelId(item.id)"
+          [attr.aria-labelledby]="tabId(item.id)"
+        >
+          @switch (item.id) {
+            @case ('room') {
+              <app-room-tab />
+            }
+            @case ('surfaces') {
+              <app-surfaces-tab />
+            }
+            @case ('floor') {
+              <app-floor-tab />
+            }
+            @case ('light') {
+              <app-light-tab />
+            }
+            @case ('estimate') {
+              <app-estimate-tab />
+            }
+          }
+        </div>
+      }
+    }
+  </div>
+</section>

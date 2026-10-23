@@ -1,0 +1,45 @@
+:host {
+  --panel-w: 0px;
+  --sheet-h: var(--sheet-peek);
+  // Half: about 130px of chrome (handle, summary, tabs) plus at least ~260px of controls on short
+  // phones, but never more than 65% so the room stays visible.
+  --sheet-half-h: min(max(var(--sheet-half), 24.4rem), 65%);
+  --stage-bottom: max(var(--sheet-h), 9.5rem);
+  position: fixed;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  background: var(--color-floor-dark);
+  font-family: var(--font-ui);
+}
+
+:host(.stop-half) {
+  --sheet-h: var(--sheet-half-h);
+}
+
+:host(.stop-full) {
+  --sheet-h: var(--sheet-full);
+}
+
+// The view fills the area not covered by the sheet or the side panel, so the room is never hidden.
+.stage {
+  position: absolute;
+  inset: 0 var(--panel-w) var(--stage-bottom) 0;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  :host {
+    --panel-w: var(--panel-width);
+    --sheet-h: 0px;
+    --stage-bottom: 0px;
+  }
+}
+
+@media (min-width: 700px) and (max-height: 499px) and (max-width: 899px) {
+  :host {
+    --panel-w: 45%;
+    --sheet-h: 0px;
+    --stage-bottom: 0px;
+  }
+}

@@ -1,0 +1,264 @@
+<button
+  type="button"
+  class="handle"
+  aria-controls="plan-panel-content"
+  aria-label="Shape controls"
+  [attr.aria-expanded]="expanded()"
+  (click)="expanded.set(!expanded())"
+>
+  <span class="bar" aria-hidden="true"></span>
+</button>
+
+<!-- Phone, collapsed: the selection and its quick actions. -->
+<div class="summary">
+  <div class="head">
+    <p class="title">{{ title() }}</p>
+    <button type="button" class="btn" data-action="details" (click)="openDetails()">
+      Edit details
+    </button>
+  </div>
+  @if (wall(); as w) {
+    <div class="actions">
+      <button
+        type="button"
+        class="btn"
+        [attr.aria-disabled]="maxOpenings() || null"
+        (click)="session.addOpeningTo(w.id, 'door')"
+      >
+        Add door
+      </button>
+      <button
+        type="button"
+        class="btn"
+        [attr.aria-disabled]="maxOpenings() || null"
+        (click)="session.addOpeningTo(w.id, 'window')"
+      >
+        Add window
+      </button>
+      <button type="button" class="btn" (click)="session.addCorner(w.id)">Add corner</button>
+    </div>
+  } @else if (!selected()) {
+    <p class="hint">Select a corner or wall to edit it.</p>
+  } @else {
+    <div class="actions">
+      <button
+        type="button"
+        class="btn"
+        [attr.aria-disabled]="(corner() && atMinCorners()) || null"
+        (click)="remove()"
+      >
+        Delete {{ removeName() }}
+      </button>
+    </div>
+  }
+  @if (maxOpenings() && wall()) {
+    <p class="hint">A room can have up to {{ limits.maxOpenings }} doors and windows.</p>
+  } @else if (corner() && atMinCorners()) {
+    <p class="hint">A room needs at least 3 corners.</p>
+  }
+</div>
+
+<div class="content" id="plan-panel-content">
+  <section class="form" aria-labelledby="plan-form-title">
+    <h3 id="plan-form-title" class="form-title" tabindex="-1">{{ title() }}</h3>
+
+    @if (!selected() && info(); as i) {
+      <p class="row">
+        <span>Floor area</span><span class="value">{{ format(i.area) }} m²</span>
+      </p>
+      <p class="row">
+        <span>Walls</span
+        ><span class="value">{{ i.walls.length }} · {{ i.perimeter.toFixed(1) }} m around</span>
+      </p>
+    }
+    @if (wall(); as w) {
+      <p class="hint">{{ w.from.name }} to {{ w.to.name.toLowerCase() }}</p>
+    }
+
+    @for (f of fields(); track f.name) {
+      <app-number-field
+        [name]="f.name"
+        [label]="f.label"
+        [value]="f.value"
+        [min]="f.min"
+        [max]="f.max"
+        [fixed]="f.fixed ?? false"
+        [hint]="f.hint"
+        [error]="err(f.name)"
+        (committed)="f.commit($event)"
+        (invalid)="session.say($event)"
+      />
+    }
+
+    @if (corner(); as c) {
+      <p class="row">
+        <span>Angle</span><span class="value">{{ c.angle.toFixed(0) }}°</span>
+      </p>
+    }
+    @if (opening()?.opening?.kind === 'window') {
+      <p class="hint">Changing the height or ceiling keeps the gap you edited last.</p>
+    }
+
+    @if (wall(); as w) {
+      <fieldset class="segmented">
+        <legend>Keep</legend>
+        <div class="segments">
+          @for (end of ends; track end) {
+            <label class="segment">
+              <input
+                type="radio"
+                name="plan-keep"
+                [checked]="keep() === end"
+                (change)="setKeep(end)"
+              />
+              <span class="face">{{ keepName(w, end) }}</span>
+            </label>
+          }
+        </div>
+      </fieldset>
+      <div class="move">
+        <span class="move-label">Move wall</span>
+        <button
+          type="button"
+          class="btn"
+          data-action="pull-in"
+          (click)="session.shiftWall(w.id, -0.1)"
+        >
+          Pull in
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-action="push-out"
+          (click)="session.shiftWall(w.id, 0.1)"
+        >
+          Push out
+        </button>
+        <span class="hint">0.10 m per tap</span>
+      </div>
+      <div class="actions">
+        <button
+          type="button"
+          class="btn"
+          data-action="add-door"
+          [disabled]="maxOpenings()"
+          (click)="session.addOpeningTo(w.id, 'door')"
+        >
+          Add door
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-action="add-window"
+          [disabled]="maxOpenings()"
+          (click)="session.addOpeningTo(w.id, 'window')"
+        >
+          Add window
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-action="add-corner"
+          (click)="session.addCorner(w.id)"
+        >
+          Add corner
+        </button>
+      </div>
+      @if (maxOpenings()) {
+        <p class="hint">A room can have up to {{ limits.maxOpenings }} doors and windows.</p>
+      }
+      <h4 class="list-title">Doors and windows</h4>
+      @for (o of w.openings; track o.id) {
+        <button
+          type="button"
+          class="row-btn"
+          [attr.aria-pressed]="opening()?.opening?.id === o.id"
+          (click)="pick({ kind: 'opening', id: o.id })"
+        >
+          {{ kindName(o) }} · {{ o.width.toFixed(2) }} m wide
+        </button>
+      } @empty {
+        <p class="hint">No doors or windows on this wall.</p>
+      }
+    } @else if (selected()) {
+      <button
+        type="button"
+        class="btn"
+        data-action="delete"
+        [attr.aria-describedby]="corner() && atMinCorners() ? 'plan-min-corners' : null"
+        [disabled]="corner() && atMinCorners()"
+        (click)="remove()"
+      >
+        Delete {{ removeName() }}
+      </button>
+      @if (corner() && atMinCorners()) {
+        <p class="hint" id="plan-min-corners">A room needs at least 3 corners.</p>
+      }
+    } @else {
+      <p class="hint">Select a corner or wall to edit it.</p>
+      <button type="button" class="btn" data-action="start-over" (click)="startOver()">
+        Start over
+      </button>
+      <p class="hint">Replaces this shape with your simple rectangle.</p>
+    }
+  </section>
+
+  @if (info(); as i) {
+    @if (selected()) {
+      <details class="disclosure">
+        <summary>Room</summary>
+        <p class="row">
+          <span>Floor area</span><span class="value">{{ format(i.area) }} m²</span>
+        </p>
+        <p class="row">
+          <span>Ceiling height</span><span class="value">{{ i.height.toFixed(2) }} m</span>
+        </p>
+        <p class="hint">{{ summarise(i.doors, i.windows) }}</p>
+        <button type="button" class="btn" data-action="start-over" (click)="startOver()">
+          Start over
+        </button>
+        <p class="hint">Replaces this shape with your simple rectangle.</p>
+      </details>
+    }
+    <details class="disclosure" open>
+      <summary>Walls ({{ i.walls.length }})</summary>
+      <ul class="list">
+        @for (w of i.walls; track w.id) {
+          <li>
+            <button
+              type="button"
+              class="row-btn"
+              [attr.aria-pressed]="wall()?.id === w.id"
+              (click)="pick({ kind: 'wall', id: w.id })"
+            >
+              {{ w.name }} · {{ w.length.toFixed(2) }} m
+              @if (w.openings.length) {
+                <span class="sub"
+                  >{{ w.openings.length }}
+                  {{ w.openings.length === 1 ? 'door or window' : 'doors and windows' }}</span
+                >
+              }
+            </button>
+          </li>
+        }
+      </ul>
+    </details>
+    <details class="disclosure">
+      <summary>Corners ({{ i.corners.length }})</summary>
+      <ul class="list">
+        @for (c of i.corners; track c.id) {
+          <li>
+            <button
+              type="button"
+              class="row-btn"
+              [attr.aria-pressed]="corner()?.id === c.id"
+              (click)="pick({ kind: 'corner', id: c.id })"
+            >
+              {{ c.name }} · {{ c.x.toFixed(2) }}, {{ c.y.toFixed(2) }}
+            </button>
+          </li>
+        }
+      </ul>
+    </details>
+  }
+</div>

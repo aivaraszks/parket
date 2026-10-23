@@ -1,0 +1,66 @@
+<div class="head">
+  <label class="label" [for]="rangeId">{{ label() }}</label>
+  <label class="visually-hidden" [for]="numberId">{{ label() }} (number)</label>
+  <span class="number">
+    <input
+      #numberInput
+      class="num"
+      type="number"
+      inputmode="decimal"
+      [id]="numberId"
+      [value]="numberText()"
+      [min]="min()"
+      [max]="max()"
+      [step]="numberStep() ?? step()"
+      [disabled]="disabled()"
+      [attr.aria-invalid]="errorText() ? 'true' : null"
+      [attr.aria-describedby]="hintId"
+      (input)="onNumberInput($event)"
+      (blur)="commit()"
+      (keydown.enter)="commit()"
+    />
+    @if (unitLabel()) {
+      <span class="unit" aria-hidden="true">{{ unitLabel() }}</span>
+    }
+  </span>
+</div>
+<div class="track">
+  @for (tick of tickMarks(); track tick.value) {
+    <span class="tick" aria-hidden="true" [style.--at]="tick.fraction"></span>
+  }
+  <input
+    class="range"
+    type="range"
+    [id]="rangeId"
+    [min]="effectiveMin()"
+    [max]="effectiveMax()"
+    [step]="step()"
+    [value]="value()"
+    [disabled]="disabled()"
+    [style.--fill]="fill() + '%'"
+    [attr.aria-valuetext]="valueText()"
+    [attr.aria-describedby]="hintId"
+    (input)="onRange($event)"
+  />
+</div>
+<p class="hint" [id]="hintId" [class.error]="!!errorText()">
+  @if (errorText()) {
+    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />
+      <path
+        d="M8 4.5v4.2M8 10.6v1"
+        stroke="currentColor"
+        stroke-width="1.6"
+        stroke-linecap="round"
+      />
+    </svg>
+    {{ errorText() }}
+  } @else {
+    {{ rangeText() }}
+    @if (note()) {
+      <span class="note">{{ note() }}</span>
+    }
+  }
+</p>
+<!-- Persistent live region so a refused value is spoken once when the message appears. -->
+<span class="visually-hidden" aria-live="polite">{{ errorText() }}</span>

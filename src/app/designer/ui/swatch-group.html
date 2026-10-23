@@ -1,0 +1,68 @@
+<fieldset>
+  <legend>{{ legend() }}</legend>
+  <div class="options">
+    @for (preset of presets(); track preset.id) {
+      <label class="choice" [title]="preset.name">
+        <input
+          type="radio"
+          [name]="name"
+          [value]="preset.hex"
+          [checked]="preset.hex === value()"
+          [attr.aria-label]="preset.name"
+          (change)="picked.emit(preset.hex)"
+        />
+        <span class="chip" [style.--swatch]="preset.hex" [style.--check]="checkColor(preset.hex)">
+          @if (preset.hex === value()) {
+            <svg class="check" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M3 8.5l3.2 3.2L13 4.8"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          }
+        </span>
+      </label>
+    }
+    <label class="choice custom" [title]="customLabel()">
+      <input
+        type="color"
+        [value]="value()"
+        [attr.aria-label]="customLabel()"
+        [class.active]="isCustom()"
+        (input)="onColor($event)"
+      />
+      <span
+        class="chip"
+        [class.active]="isCustom()"
+        [style.--swatch]="isCustom() ? value() : null"
+        [style.--check]="checkColor(value())"
+      >
+        @if (isCustom()) {
+          <svg class="check" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M3 8.5l3.2 3.2L13 4.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        } @else {
+          <svg class="plus" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+            />
+          </svg>
+        }
+      </span>
+    </label>
+  </div>
+</fieldset>

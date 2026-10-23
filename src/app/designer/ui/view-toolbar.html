@@ -1,0 +1,122 @@
+<nav class="bar" aria-label="View tools">
+  <a class="btn chip" routerLink="/" aria-label="Back to Parket home">
+    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+      <path
+        d="M10 3L5 8l5 5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+    Parket
+  </a>
+  <span class="spacer"></span>
+
+  <div class="group inline" role="group" aria-label="Views">
+    @for (preset of presets; track preset.id) {
+      <button
+        type="button"
+        class="btn chip"
+        [title]="unavailable() ? 'Needs 3D view' : preset.sub"
+        [attr.aria-disabled]="unavailable()"
+        (click)="setPreset(preset.id)"
+      >
+        {{ preset.label }}
+      </button>
+    }
+    <button
+      type="button"
+      class="btn chip icon-only"
+      aria-label="Zoom out"
+      [attr.aria-disabled]="unavailable()"
+      (click)="zoom(-1)"
+    >
+      <span aria-hidden="true">−</span>
+    </button>
+    <button
+      type="button"
+      class="btn chip icon-only"
+      aria-label="Zoom in"
+      [attr.aria-disabled]="unavailable()"
+      (click)="zoom(1)"
+    >
+      <span aria-hidden="true">+</span>
+    </button>
+  </div>
+
+  <div class="menu views-menu">
+    <button
+      type="button"
+      class="btn chip"
+      data-trigger="views"
+      aria-controls="views-popover"
+      [attr.aria-expanded]="open() === 'views'"
+      [attr.aria-disabled]="unavailable()"
+      [title]="saveTitle()"
+      (click)="unavailable() ? null : toggle('views')"
+    >
+      Views
+    </button>
+    @if (open() === 'views') {
+      <div class="popover" id="views-popover" role="group" aria-label="Views">
+        @for (preset of presets; track preset.id) {
+          <button type="button" class="item" (click)="setPreset(preset.id)">
+            <span>{{ preset.label }}</span>
+            <small>{{ preset.sub }}</small>
+          </button>
+        }
+        <button type="button" class="item" (click)="zoom(1)"><span>Zoom in</span></button>
+        <button type="button" class="item" (click)="zoom(-1)"><span>Zoom out</span></button>
+      </div>
+    }
+  </div>
+
+  <div class="menu">
+    <button
+      type="button"
+      class="btn chip icon-only"
+      data-trigger="help"
+      aria-label="How to look around"
+      aria-controls="help-popover"
+      [attr.aria-expanded]="open() === 'help'"
+      (click)="toggle('help')"
+    >
+      <span aria-hidden="true">?</span>
+    </button>
+    @if (open() === 'help') {
+      <div class="popover help" id="help-popover" role="group" aria-label="How to look around">
+        <p>Touch: Drag to look around. Pinch to zoom. Two fingers to move.</p>
+        <p>Mouse: Drag to look around. Scroll to zoom. Right-drag to move.</p>
+        <p>Keyboard: Arrow keys to look around. + and - to zoom. 0 to reset the view.</p>
+        <button type="button" class="item" (click)="closePopover()">Close</button>
+      </div>
+    }
+  </div>
+
+  <button
+    type="button"
+    class="btn chip primary"
+    [attr.aria-disabled]="unavailable() || exporter.busy()"
+    [attr.aria-busy]="exporter.busy()"
+    [title]="saveTitle()"
+    (click)="save()"
+  >
+    @if (exporter.busy()) {
+      <span class="spinner" aria-hidden="true"></span>
+    } @else {
+      <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path
+          d="M8 2v8M4.5 7L8 10.5 11.5 7M3 13h10"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    }
+    <span class="save-label">{{ exporter.busy() ? 'Saving...' : 'Save image' }}</span>
+  </button>
+</nav>

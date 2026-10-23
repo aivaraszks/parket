@@ -1,0 +1,129 @@
+@use './shared';
+
+:host {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-sheet);
+  display: block;
+  height: var(--sheet-peek);
+  min-height: 9.5rem;
+  transition: height var(--dur-sheet) var(--ease-out);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+:host(.stop-half) {
+  height: var(--sheet-half-h, var(--sheet-half));
+}
+
+:host(.stop-full) {
+  height: var(--sheet-full);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--surface-solid);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-panel);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+
+  @supports (backdrop-filter: blur(1px)) {
+    background: var(--surface-overlay);
+    backdrop-filter: var(--surface-blur);
+  }
+}
+
+.handle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--target-min);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  cursor: grab;
+  touch-action: none;
+}
+
+.bar {
+  width: var(--sheet-handle-w);
+  height: var(--sheet-handle-h);
+  background: var(--control-border);
+  border-radius: var(--radius-pill);
+}
+
+.summary {
+  flex: none;
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+.tabs {
+  flex: none;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel {
+  padding: var(--space-4);
+}
+
+// Desktop side panel and landscape phones: handle hidden, summary pinned at the bottom.
+@media (min-width: 900px), (min-width: 700px) and (max-height: 499px) {
+  :host,
+  :host(.stop-half),
+  :host(.stop-full) {
+    top: 0;
+    left: auto;
+    width: var(--panel-width);
+    height: auto;
+    min-height: 0;
+    transition: none;
+  }
+
+  .sheet {
+    border-radius: 0;
+    border-left: 1px solid var(--surface-hairline);
+    box-shadow: none;
+  }
+
+  .handle {
+    display: none;
+  }
+
+  .tabs {
+    order: 1;
+  }
+
+  .body {
+    order: 2;
+  }
+
+  .summary {
+    order: 3;
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--surface-hairline);
+  }
+}
+
+@media (min-width: 700px) and (max-height: 499px) and (max-width: 899px) {
+  :host,
+  :host(.stop-half),
+  :host(.stop-full) {
+    width: 45%;
+  }
+}

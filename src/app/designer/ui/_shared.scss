@@ -1,0 +1,194 @@
+// Shared mixins for the designer controls. Tokens only (docs/design/design-system.md).
+
+@mixin colour-transition {
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Text and number inputs
+@mixin field {
+  @include colour-transition;
+  height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: var(--field-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: var(--weight-regular) var(--text-md) / 1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+
+  &:hover {
+    background: var(--field-bg-hover);
+  }
+}
+
+// Buttons: .btn (secondary) and .btn.primary
+@mixin button {
+  @include colour-transition;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  background: transparent;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: var(--weight-semibold) var(--text-sm) / 1 var(--font-ui);
+  text-decoration: none;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--field-bg-hover);
+  }
+
+  &.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--text-on-accent);
+
+    &:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    &:active {
+      background: var(--accent-active);
+      border-color: var(--accent-active);
+    }
+  }
+
+  &[aria-disabled='true'],
+  &:disabled {
+    opacity: var(--disabled-opacity);
+    cursor: not-allowed;
+  }
+
+  &[aria-busy='true'] {
+    opacity: 0.7;
+    cursor: progress;
+  }
+}
+
+@mixin panel-text {
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+// Radio-driven swatch: the native input is visually hidden and drives .chip.
+@mixin swatch {
+  .choice {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-1);
+    cursor: pointer;
+  }
+
+  .choice input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: var(--target-min);
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .chip {
+    position: relative;
+    display: block;
+    width: var(--target-min);
+    height: var(--target-min);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-md);
+    background: var(--swatch, transparent);
+  }
+
+  .choice:hover .chip {
+    outline: 2px solid var(--control-border);
+    outline-offset: 2px;
+  }
+
+  input:checked + .chip {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  input:focus-visible + .chip {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px var(--focus-ring-halo);
+  }
+
+  .check {
+    position: absolute;
+    right: 2px;
+    bottom: 2px;
+    width: 1rem;
+    height: 1rem;
+    color: var(--check, var(--text-on-accent));
+  }
+
+  @media (forced-colors: active) {
+    input:checked + .chip {
+      outline-color: Highlight;
+    }
+  }
+}
+
+@mixin choice-group {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-primary);
+  }
+
+  .options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-1);
+  }
+}
+
+// Content of one tab panel: stacked fields.
+@mixin tab-content {
+  :host {
+    display: block;
+    font-family: var(--font-ui);
+  }
+
+  .fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .helper {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+}

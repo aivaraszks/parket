@@ -1,0 +1,74 @@
+@use '../ui/shared';
+
+:host {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: var(--space-3);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.number {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.num {
+  @include shared.field;
+  width: 5.5rem;
+  text-align: right;
+  appearance: textfield;
+
+  &[aria-invalid='true'] {
+    border-color: var(--text-error);
+  }
+}
+
+.unit {
+  min-width: 1.25rem;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.tag {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-on-accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.hint {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+
+  &:empty {
+    display: none;
+  }
+
+  &.error {
+    color: var(--text-error);
+  }
+}
+
+.icon {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+}

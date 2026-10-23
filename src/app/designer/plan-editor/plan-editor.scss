@@ -1,0 +1,64 @@
+:host {
+  --panel-h: max(var(--plan-panel-collapsed), 10.5rem);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-plan);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) var(--panel-h);
+  grid-template-areas:
+    'bar'
+    'canvas'
+    'panel';
+  background: var(--plan-bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+}
+
+:host(.panel-expanded) {
+  --panel-h: var(--plan-panel-expanded);
+}
+
+app-plan-canvas {
+  grid-area: canvas;
+}
+
+.skip {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 2;
+  min-height: var(--target-min);
+  padding: 0 var(--space-4);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-on-accent);
+  font: var(--weight-semibold) var(--text-sm) / 1 var(--font-ui);
+  transform: translateY(-200%);
+
+  &:focus {
+    transform: none;
+  }
+}
+
+@media (min-width: 900px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr) var(--panel-width);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      'bar panel'
+      'tools panel'
+      'canvas panel';
+  }
+}
+
+@media (min-width: 700px) and (max-height: 499px) and (max-width: 899px) {
+  :host {
+    grid-template-columns: minmax(0, 1fr) 45%;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'bar panel'
+      'canvas panel';
+  }
+}
