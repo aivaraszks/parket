@@ -16,6 +16,7 @@ function fakeScene(): FloorSceneApi {
     setFinish: vi.fn(),
     setSun: vi.fn(),
     setFloor: vi.fn(),
+    setFrame: vi.fn(),
     setPreset: vi.fn(),
     zoom: vi.fn(),
     exportPng: vi.fn(() => Promise.resolve(new Blob())),
@@ -133,41 +134,30 @@ describe('Viewport', () => {
     );
   });
 
-  it('turns picking on and off with Colour mode', async () => {
+  it('turns picking on and off with the Colour section', async () => {
     const { fixture } = await setup();
     const colouring = TestBed.inject(ColouringState);
     expect(scene.setPicking).toHaveBeenLastCalledWith(false);
-    colouring.setActive(true);
+    colouring.setColourOpen(true);
     await fixture.whenStable();
     expect(scene.setPicking).toHaveBeenLastCalledWith(true);
-    colouring.setActive(false);
+    colouring.setColourOpen(false);
     await fixture.whenStable();
     expect(scene.setPicking).toHaveBeenLastCalledWith(false);
   });
 
-  it('turns picking on while the Surfaces tab is open', async () => {
-    const { fixture } = await setup();
-    const colouring = TestBed.inject(ColouringState);
-    colouring.setSurfacesOpen(true);
-    await fixture.whenStable();
-    expect(scene.setPicking).toHaveBeenLastCalledWith(true);
-    colouring.setSurfacesOpen(false);
-    await fixture.whenStable();
-    expect(scene.setPicking).toHaveBeenLastCalledWith(false);
-  });
-
-  it('mentions Colour mode in the canvas description only while it is on', async () => {
+  it('mentions the open Colour section in the canvas description only while it is open', async () => {
     const { fixture, el } = await setup();
     const canvas = el.querySelector('canvas')!;
     expect(el.querySelector('#viewport-colour-help')).toBeNull();
     expect(canvas.getAttribute('aria-describedby')).not.toContain('viewport-colour-help');
-    TestBed.inject(ColouringState).setActive(true);
+    TestBed.inject(ColouringState).setColourOpen(true);
     await fixture.whenStable();
     expect(canvas.getAttribute('aria-describedby')).toContain('viewport-colour-help');
-    expect(el.querySelector('#viewport-colour-help')?.textContent).toContain('Colour mode is on');
+    expect(el.querySelector('#viewport-colour-help')?.textContent).toContain('Colour is open');
   });
 
-  it('selects the tapped surface and clears the selection on an empty tap', async () => {
+  it('selects the tapped surface and keeps the selection on an empty tap', async () => {
     const { fixture } = await setup();
     const colouring = TestBed.inject(ColouringState);
     callbacks?.onPick({ kind: 'wall', id: 's1' });
@@ -177,18 +167,28 @@ describe('Viewport', () => {
     expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'wall', id: 's1' });
     callbacks?.onPick(null);
     await fixture.whenStable();
-    expect(colouring.selected()).toBeNull();
-    expect(scene.setHighlight).toHaveBeenLastCalledWith(null);
+    expect(colouring.selected()).toEqual({ kind: 'wall', id: 's1' });
+    expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'wall', id: 's1' });
   });
 
-  it('highlights a list selection even with Colour mode off', async () => {
-    const { fixture } = await setup();
-    TestBed.inject(ColouringState).select({ kind: 'ceiling' }, 'list');
-    await fixture.whenStable();
-    expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'ceiling' });
+  it('feeds the faded highlight to the scene', async () => {
+    await setup();
+    vi.useFakeTimers();
+    try {
+      const colouring = TestBed.inject(ColouringState);
+      colouring.select({ kind: 'ceiling' }, 'list');
+      colouring.markColourPicked();
+      TestBed.tick();
+      expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'ceiling' });
+      vi.advanceTimersByTime(1600);
+      TestBed.tick();
+      expect(scene.setHighlight).toHaveBeenLastCalledWith(null);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('clears the selection when a mode switch removes the selected wall', async () => {
+  it('falls back to All walls when a mode switch removes the selected wall', async () => {
     const { fixture } = await setup();
     const colouring = TestBed.inject(ColouringState);
     colouring.select({ kind: 'wall', id: 's2' }, 'list');
@@ -196,8 +196,8 @@ describe('Viewport', () => {
     expect(colouring.selected()).not.toBeNull();
     TestBed.inject(DesignState).setMode('custom');
     await fixture.whenStable();
-    expect(colouring.selected()).toBeNull();
-    expect(scene.setHighlight).toHaveBeenLastCalledWith(null);
+    expect(colouring.selected()).toEqual({ kind: 'walls' });
+    expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'walls' });
   });
 
   it('keeps a selection that still exists after a plan edit', async () => {

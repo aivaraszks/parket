@@ -1,8 +1,8 @@
-// Compact phone scale: the bottom-sheet layouts (below 900px, except landscape phones with the
-// side panel) redefine the size tokens at 0.8x to leave more room for the 3D view and the plan.
+// Compact phone scale: the dock + tray layouts (below 900px, except landscape phones with the
+// rail) redefine the size tokens at 0.8x to leave more room for the 3D view and the plan.
 // Explicit values on purpose (no calc cycles). See docs/design/design-system.md, "Compact phone scale".
 @mixin phone-tokens {
-  @media (max-width: 699px), (min-height: 500px) and (max-width: 899px) {
+  @media (max-width: 559px), (min-height: 500px) and (max-width: 899px) {
     :host {
       --ui-scale: 0.8;
       --text-xs: 0.7rem;
@@ -26,9 +26,19 @@
       --target-min: 2.2rem;
       --thumb-size: 1.4rem;
       --track-height: 0.2rem;
-      --sheet-handle-w: 2rem;
-      --sheet-handle-h: 0.2rem;
       --plan-bar-h: 2.8rem;
+      // Dock, tray, bubble, chips (docs/design/components/dock.md). 0.8x of the base values.
+      --dock-h: 3.2rem;
+      --dock-item-min-w: 3.2rem;
+      --dock-icon-size: 1.2rem;
+      --tray-min-h: 9.6rem;
+      --tray-view-reserve: 3.2rem;
+      --bubble-h: 1.6rem;
+      --bubble-min-w: 2.4rem;
+      --bubble-gap: 0.4rem;
+      --chip-fade-w: 1.2rem;
+      --wood-chip-w: 4.2rem;
+      --hint-max-w: 17.6rem;
     }
   }
 }

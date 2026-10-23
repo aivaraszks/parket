@@ -12,6 +12,8 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { SceneCommands } from '../scene/scene-commands';
+import { ColouringState } from '../state/colouring-state';
 import { DesignState } from '../state/design-state';
 import { MAX_PROJECT_NAME_LENGTH, MAX_PROJECTS, ProjectMeta } from '../state/project-meta';
 import { ProjectIndex } from '../state/project-index';
@@ -27,8 +29,9 @@ interface RowMenu {
   readonly top: number;
 }
 
-/** Rough height of the three-item menu, to decide whether it flips above its button. */
-const MENU_HEIGHT_PX = 170;
+/** Rough height of the four-item menu, to decide whether it flips above its button. */
+const MENU_HEIGHT_PX = 210;
+const UNDO_TOAST_MS = 8000;
 const MENU_GAP_PX = 4;
 const CHIP = '[data-trigger="projects"]';
 const LIMIT_HINT = 'Limit reached. Delete a project to add more.';
@@ -52,7 +55,9 @@ export class ProjectsDialog {
   private readonly index = inject(ProjectIndex);
   private readonly design = inject(DesignState);
   private readonly toasts = inject(Toasts);
+  private readonly scene = inject(SceneCommands);
   private readonly announcer = inject(ColourAnnouncer);
+  private readonly colouring = inject(ColouringState);
   private readonly dialog = viewChild.required<ElementRef<HTMLElement>>('dialog');
   private readonly renameField = viewChild<ElementRef<HTMLInputElement>>('renameField');
   private readonly opener = this.document.activeElement as HTMLElement | null;
@@ -71,6 +76,7 @@ export class ProjectsDialog {
   );
   private readonly now = Date.now();
 
+  protected readonly currentId = computed(() => this.design.activeId());
   protected readonly count = computed(() => this.index.projects().length);
   protected readonly rows = computed(() => {
     const byId = new Map(this.index.projects().map((p) => [p.id, p]));
@@ -204,6 +210,36 @@ export class ProjectsDialog {
     const opened = wasActive ? ` Opened ${this.nameOf(this.design.activeId())}.` : '';
     this.announcer.say(`Deleted ${name}.${opened}`);
     // The Undo toast is the only way back and lasts 8 s: put keyboard focus on it (it pauses there).
+    this.restoreTargets = ['.toast .action', CHIP];
+    this.closed.emit();
+  }
+
+  /** Reset the current project to defaults (its room shape is kept), with an Undo toast. */
+  protected reset(): void {
+    this.closeMenu(false);
+    this.design.reset();
+    this.scene.setPreset('corner');
+    // Colour open: the selection returns to "All walls" (Undo leaves it as is).
+    if (this.colouring.colourOpen()) {
+      this.colouring.select({ kind: 'walls' }, 'list');
+    }
+    const kept = this.design.plan() ? ' Your room shape is kept.' : '';
+    this.toasts.show(`Design reset.${kept}`, {
+      durationMs: UNDO_TOAST_MS,
+      action: {
+        label: 'Undo',
+        run: () => {
+          this.design.undo();
+          // Focus was on the Undo button, which is about to go away.
+          restoreFocus(this.document, [CHIP], null);
+        },
+      },
+      // A manual edit drops the undo buffer; the toast must not offer a dead Undo.
+      keepWhile: () => this.design.canUndo(),
+      onDismiss: () => this.design.dismissUndo(),
+    });
+    this.announcer.say('Design reset.');
+    // The Undo toast lasts 8 s: put keyboard focus on it, else on the Projects chip.
     this.restoreTargets = ['.toast .action', CHIP];
     this.closed.emit();
   }

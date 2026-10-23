@@ -1,0 +1,104 @@
+:host {
+  display: block;
+  flex: none;
+  font-family: var(--font-ui);
+}
+
+nav {
+  background: var(--tray-bg);
+  border-top: 1px solid var(--surface-hairline);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+
+  @supports (backdrop-filter: blur(1px)) {
+    backdrop-filter: var(--tray-blur);
+  }
+}
+
+.toolbar {
+  display: flex;
+  height: var(--dock-h);
+}
+
+.item {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: var(--dock-item-min-w);
+  height: var(--dock-h);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font: var(--weight-medium) var(--text-xs) / var(--leading-tight) var(--font-ui);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast);
+
+  &:hover {
+    background: var(--field-bg-hover);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -4px;
+    box-shadow: none;
+  }
+
+  &.open {
+    background: var(--dock-active-bg);
+    color: var(--text-primary);
+    font-weight: var(--weight-semibold);
+
+    // Not colour alone: the icon fills (app-section-icon.filled) and a bar marks the edge.
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto;
+      height: var(--dock-bar-h);
+      background: var(--accent);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Rail: wide screens and landscape phones.
+@media (min-width: 900px), (min-width: 560px) and (max-height: 499px) {
+  :host {
+    height: 100%;
+  }
+
+  nav {
+    height: 100%;
+    width: var(--rail-w);
+    padding-bottom: 0;
+    border-top: 0;
+    border-left: 1px solid var(--surface-hairline);
+  }
+
+  .toolbar {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .item {
+    flex: none;
+    width: 100%;
+    height: var(--rail-item-h);
+
+    &.open::before {
+      inset: 0 auto 0 0;
+      width: var(--dock-bar-h);
+      height: auto;
+    }
+  }
+}

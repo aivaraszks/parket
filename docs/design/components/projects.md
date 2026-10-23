@@ -36,7 +36,7 @@ Container `:host` follows `colour-confirm-dialog.scss`: fixed, `z-index: var(--z
 | Size | `max-height: var(--projects-sheet-max-h)` (80dvh) | `width: min(100%, var(--projects-dialog-w))`, `max-height: min(100%, 36rem)` |
 | Radius | `--radius-lg` top corners only | `--radius-lg` |
 | Padding | `--space-4` sides, bottom `max(var(--space-4), env(safe-area-inset-bottom))` | `--space-6` |
-| Enter | slide up from 100% over `--dur-sheet` `--ease-out` | fade + 8px rise over `--dur-base` `--ease-out` |
+| Enter | slide up from 100% over `--dur-tray` `--ease-out` | fade + 8px rise over `--dur-base` `--ease-out` |
 
 Reduced motion: no slide, fade or rise. Layout is a flex column: header (not scrolling), count, New button, list (`overflow-y: auto; min-height: 0; flex: 1`), so only the list scrolls. 320px at 200% zoom works because the sheet scrolls and rows wrap nothing. Scrim tap closes. A 2.5rem x 0.25rem decorative grabber is not drawn (the sheet is not draggable).
 

@@ -1,5 +1,3 @@
-@use './shared';
-
 :host {
   position: fixed;
   inset: 0;
@@ -60,8 +58,4 @@ p {
       width: 100%;
     }
   }
-}
-
-.btn {
-  @include shared.button;
 }

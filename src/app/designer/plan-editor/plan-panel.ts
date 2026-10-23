@@ -2,7 +2,6 @@ import {
   afterNextRender,
   Component,
   computed,
-  DestroyRef,
   effect,
   ElementRef,
   inject,
@@ -10,6 +9,7 @@ import {
   linkedSignal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { minPlanHeight, minWallLength } from '../plan/plan-edit';
 import {
   doorMaxHeight,
@@ -19,13 +19,10 @@ import {
   windowMaxSill,
 } from '../plan/plan-model';
 import { formatArea } from '../ui/format';
-import { Toasts } from '../ui/toasts';
 import { EditorSession, Selection } from './editor-session';
 import { EditorView } from './editor-view';
 import { NumberField } from './number-field';
 import { kindName, openingsSummary, WallInfo } from './plan-info';
-
-const UNDO_TOAST_MS = 8000;
 
 /** One metre field of the selected item's form. */
 interface Field {
@@ -42,22 +39,28 @@ interface Field {
 const m2 = (n: number): string => n.toFixed(2);
 const range = (min: number, max: number): string => `Use ${m2(min)} to ${m2(max)} m`;
 
-/** Details and forms for the selection, the Room form and the Walls and Corners lists. */
+/**
+ * Details and forms for the selection, the Room form and the Walls and Corners lists. Desktop:
+ * always the full side panel. Phone: an action bar for the selection and, on request, a short card
+ * (details, or a Walls / Corners list from the overflow menu) above it.
+ */
 @Component({
   selector: 'app-plan-panel',
-  imports: [NumberField],
+  imports: [NumberField, NgTemplateOutlet],
   templateUrl: './plan-panel.html',
   styleUrl: './plan-panel.scss',
-  host: { '[class.expanded]': 'expanded()' },
+  host: {
+    '[class.card-open]': "card() === 'details'",
+    '[class.list-open]': "card() === 'walls' || card() === 'corners'",
+  },
 })
 export class PlanPanel {
   protected readonly session = inject(EditorSession);
   private readonly view = inject(EditorView);
-  private readonly toasts = inject(Toasts);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
-  protected readonly expanded = this.session.panelExpanded;
+  protected readonly card = this.session.card;
   protected readonly limits = L;
   protected readonly format = formatArea;
   protected readonly summarise = openingsSummary;
@@ -101,6 +104,36 @@ export class PlanPanel {
         return `${kindName(s.opening)} on ${s.wall.name.toLowerCase()}`;
       default:
         return 'Room shape';
+    }
+  });
+
+  /** Short name of the selection for the card label: "Wall 2", "Door 1". */
+  protected readonly cardName = computed(() => {
+    const s = this.selected();
+    switch (s?.kind) {
+      case 'corner':
+        return s.corner.name;
+      case 'wall':
+        return s.wall.name;
+      case 'opening':
+        return this.openingName(s.opening);
+      default:
+        return 'Room';
+    }
+  });
+
+  /** Text of the chip in the action bar, which also opens the card. */
+  protected readonly chipText = computed(() => {
+    const s = this.selected();
+    switch (s?.kind) {
+      case 'corner':
+        return `${s.corner.name}: ${s.corner.x.toFixed(2)}, ${s.corner.y.toFixed(2)} m`;
+      case 'wall':
+        return `${s.wall.name}: ${s.wall.length.toFixed(2)} m`;
+      case 'opening':
+        return `${this.openingName(s.opening)}: ${s.opening.width.toFixed(2)} m wide`;
+      default:
+        return `Height ${(this.info()?.height ?? 0).toFixed(2)} m`;
     }
   });
 
@@ -175,27 +208,38 @@ export class PlanPanel {
     ];
   });
 
-  private toastId: number | null = null;
-
   constructor() {
-    // The Start over toast belongs to this editor: it goes when the editor closes.
-    inject(DestroyRef).onDestroy(() => {
-      if (this.toastId !== null) this.toasts.dismiss(this.toastId);
-    });
-    // "Add door/window" moves focus to the new item's first field, even from the collapsed panel.
+    // "Add door/window" opens the card and moves focus to the new item's first field.
+    // Opening a list from the overflow menu moves focus to the list's heading.
     effect(() => {
-      if (this.session.focusRequest()?.target !== 'first-field') {
+      const target = this.session.focusRequest()?.target;
+      if (target !== 'first-field' && target !== 'card') {
         return;
       }
       untracked(() => {
-        this.expanded.set(true);
+        if (target === 'first-field') {
+          this.card.set('details');
+        }
         afterNextRender(
           () =>
             this.host.nativeElement
-              .querySelector<HTMLElement>('[data-field="width"] input')
+              .querySelector<HTMLElement>(
+                target === 'first-field' ? '[data-field="width"] input' : '[data-list-title]',
+              )
               ?.focus(),
           { injector: this.injector },
         );
+      });
+    });
+    // The card for a selected item closes when the selection clears.
+    let hadSelection = false;
+    effect(() => {
+      const has = this.selected() !== null;
+      untracked(() => {
+        if (hadSelection && !has && this.card() === 'details') {
+          this.card.set(null);
+        }
+        hadSelection = has;
       });
     });
   }
@@ -275,6 +319,7 @@ export class PlanPanel {
   // ---- list selection ---------------------------------------------------------------------
 
   protected pick(selection: Selection): void {
+    this.card.set(null);
     this.session.select(selection);
     const info = this.info();
     const mid = (w: WallInfo | undefined) =>
@@ -309,24 +354,39 @@ export class PlanPanel {
     this.keep.set(end);
   }
 
-  /** Open the form and keep focus on its title (the button that was pressed is hidden now). */
-  protected openDetails(): void {
-    this.expanded.set(true);
-    this.session.say('Details open');
+  /** The action-bar chip: open the card on its first field, or close it and keep focus on the chip. */
+  protected toggleCard(): void {
+    if (this.card() === 'details') {
+      this.card.set(null);
+      return;
+    }
+    this.card.set('details');
     afterNextRender(
-      () => this.host.nativeElement.querySelector<HTMLElement>('#plan-form-title')?.focus(),
+      () => {
+        const input = this.host.nativeElement.querySelector<HTMLInputElement>(
+          '.content app-number-field input',
+        );
+        input?.focus();
+        input?.select();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected closeList(): void {
+    this.card.set(null);
+    afterNextRender(
+      () => this.host.nativeElement.querySelector<HTMLElement>('[data-chip]')?.focus(),
       { injector: this.injector },
     );
   }
 
   protected startOver(): void {
-    this.session.startOver();
-    const session = this.session;
-    this.toastId = this.toasts.show('Started over.', {
-      durationMs: UNDO_TOAST_MS,
-      action: { label: 'Undo', run: () => session.undo() },
-      // Another edit, or closing the editor, makes this Undo unsafe: drop the offer.
-      keepWhile: () => !session.closed() && session.lastLabel() === 'started over',
-    });
+    this.session.startOverWithUndo();
+  }
+
+  private openingName(o: PlanOpening): string {
+    const same = this.session.plan().openings.filter((x) => x.kind === o.kind);
+    return `${kindName(o)} ${same.findIndex((x) => x.id === o.id) + 1}`;
   }
 }

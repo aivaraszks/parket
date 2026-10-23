@@ -1,40 +1,48 @@
-@for (group of groups(); track group.section) {
-  <fieldset>
-    <legend>{{ group.legend }}</legend>
-    <div class="options">
-      @for (item of group.items; track $index) {
-        <label class="item">
-          <input
-            type="radio"
-            [name]="groupName(group.section)"
-            [checked]="isSelected(item.ref)"
-            [attr.aria-describedby]="itemId($index, group.section)"
-            (change)="pick(item.ref)"
-          />
-          <span class="face">
-            <span class="dot" [style.--dot]="item.hex" aria-hidden="true"></span>
-            {{ item.label }}
-            @if (isSelected(item.ref)) {
-              <svg class="check" viewBox="0 0 16 16" aria-hidden="true">
-                <path
-                  d="M3 8.5l3.2 3.2L13 4.8"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            }
-          </span>
-        </label>
-        <span class="visually-hidden" [id]="itemId($index, group.section)">{{
-          colourName(item.hex)
-        }}</span>
-      }
-    </div>
-  </fieldset>
-}
-@if (noDoors()) {
-  <p class="note">Doors can be added in a custom room shape.</p>
+<div class="row" role="radiogroup" aria-label="What to colour">
+  @for (option of whats(); track option.id) {
+    <label class="item">
+      <input
+        type="radio"
+        [name]="whatName"
+        [checked]="what() === option.id"
+        (change)="pick(option.ref)"
+      />
+      <span class="face">
+        @if (what() === option.id) {
+          <svg class="check" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M3 8.5l3.2 3.2L13 4.8"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        }
+        {{ option.label }}
+      </span>
+    </label>
+  }
+</div>
+@if (whichs().length) {
+  <div class="row" role="radiogroup" aria-label="Which one">
+    @for (item of whichs(); track item.ref.kind + $index) {
+      <label class="item number">
+        <input
+          type="radio"
+          [name]="whichName"
+          [checked]="isSelected(item.ref)"
+          [attr.aria-label]="item.chipName"
+          (change)="pick(item.ref)"
+        />
+        <span class="face">{{ item.chip }}</span>
+      </label>
+    }
+  </div>
+} @else {
+  <!-- No radios: the note sits in a same-height row, outside any (empty) group. -->
+  <div class="row">
+    <p class="note">{{ note() }}</p>
+  </div>
 }

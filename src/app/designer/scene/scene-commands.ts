@@ -1,4 +1,5 @@
 import { Service, signal } from '@angular/core';
+import type { FrameInsets } from './frame-insets';
 
 export type ViewPreset = 'corner' | 'doorway' | 'top';
 export type SceneStatus = 'loading' | 'ready' | 'no-webgl' | 'context-lost' | 'error';
@@ -8,6 +9,8 @@ export interface SceneController {
   setPreset(name: ViewPreset): void;
   zoom(direction: 1 | -1): void;
   exportPng(): Promise<Blob>;
+  /** Frame the room in the canvas minus the covered strips (CSS px). */
+  setFrame(insets: FrameInsets): void;
 }
 
 /**
@@ -18,6 +21,7 @@ export interface SceneController {
 export class SceneCommands {
   private readonly _status = signal<SceneStatus>('loading');
   private controller: SceneController | null = null;
+  private frame: FrameInsets | null = null;
   private retryHandler: (() => void) | null = null;
 
   readonly status = this._status.asReadonly();
@@ -28,6 +32,12 @@ export class SceneCommands {
 
   zoom(direction: 1 | -1): void {
     this.controller?.zoom(direction);
+  }
+
+  /** The shell publishes the covered strips; remembered so a re-created scene gets them. */
+  setFrame(insets: FrameInsets): void {
+    this.frame = insets;
+    this.controller?.setFrame(insets);
   }
 
   exportPng(): Promise<Blob> {
@@ -50,6 +60,9 @@ export class SceneCommands {
   /** Called by the Viewport only. */
   attach(controller: SceneController): void {
     this.controller = controller;
+    if (this.frame) {
+      controller.setFrame(this.frame);
+    }
   }
 
   /** Called by the Viewport only; ignores stale detaches. */

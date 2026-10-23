@@ -4,33 +4,40 @@ import { formatArea, formatCount } from './format';
 
 export const LIVE_DEBOUNCE_MS = 500;
 
-/**
- * The always-visible estimate line (peek bar / pinned footer). Screen readers get one
- * debounced sentence in a polite live region, so dragging a slider is not read out on every step.
- */
+/** "Estimate, 374 planks to buy, 22.40 square metres": the dock button's accessible name. */
+export function estimateName(planks: number, area: number): string {
+  return `Estimate, ${formatCount(planks)} planks to buy, ${formatArea(area)} square metres`;
+}
+
+/** The dock's Estimate button content: the planks to buy over the word "planks". */
 @Component({
   selector: 'app-estimate-summary',
   template: `
-    <p class="line" data-testid="summary">
-      <strong>{{ area() }} m²</strong>
-      <span class="sep" aria-hidden="true">·</span>
-      <span>
-        <strong>Buy {{ planks() }} planks</strong>
-        (incl. {{ state.wastePercent() }}% waste)
-      </span>
-    </p>
-    <p class="visually-hidden" aria-live="polite" data-testid="live">{{ live() }}</p>
+    <span class="count" data-testid="summary">{{ planks() }}</span
+    >{{ ' ' }}
+    <span class="unit">planks</span>
   `,
   styleUrl: './estimate-summary.scss',
 })
 export class EstimateSummary {
-  protected readonly state = inject(DesignState);
-
-  protected readonly area = computed(() => formatArea(this.state.floorArea()));
+  private readonly state = inject(DesignState);
   protected readonly planks = computed(() => formatCount(this.state.planksWithWaste()));
+}
+
+/**
+ * Screen readers get one debounced sentence in a polite live region, so dragging a slider is not
+ * read out on every step. Lives next to (not inside) the dock button.
+ */
+@Component({
+  selector: 'app-estimate-live',
+  template: `<p class="visually-hidden" aria-live="polite" data-testid="live">{{ live() }}</p>`,
+})
+export class EstimateLive {
+  private readonly state = inject(DesignState);
+
   private readonly sentence = computed(
     () =>
-      `${this.area()} square metres, ${this.planks()} planks including ${this.state.wastePercent()} percent waste`,
+      `${formatArea(this.state.floorArea())} square metres, ${formatCount(this.state.planksWithWaste())} planks including ${this.state.wastePercent()} percent waste`,
   );
 
   protected readonly live = signal('');

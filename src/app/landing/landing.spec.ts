@@ -55,6 +55,13 @@ describe('Landing', () => {
       expect(link.tabIndex).toBe(0);
     });
 
+    it('lets a pill be tapped during the intro (pills take pointer events)', async () => {
+      const { el, cta } = await setup();
+      expect(cta.classList.contains('revealed')).toBe(false);
+      const pill = el.querySelector<HTMLElement>('.pill')!;
+      expect(getComputedStyle(pill).pointerEvents).not.toBe('none');
+    });
+
     it('is revealed early by a key press', async () => {
       const { fixture, cta } = await setup();
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
@@ -82,16 +89,22 @@ describe('Landing', () => {
       return { el, links: Array.from(el.querySelectorAll('a')), cta: el.querySelector('.cta')! };
     }
 
-    it('puts Continue first, then Design your floor opening a new project, then the count', async () => {
+    it('puts Continue first, then New project opening a new project, then the count', async () => {
       seed(['Kitchen', 'Hall', 'Attic']);
       const { el, links } = await setup();
       expect(links.length).toBe(2);
       expect(links[0].textContent?.replace(/\s+/g, ' ').trim()).toBe('Continue: Kitchen');
       expect(links[0].getAttribute('href')).toBe('/designer');
       expect(links[0].classList.contains('primary')).toBe(true);
-      expect(links[1].textContent?.trim()).toBe('Design your floor');
+      expect(links[1].textContent?.trim()).toBe('New project');
       expect(links[1].getAttribute('href')).toBe('/designer?new=1');
       expect(el.querySelector('.meta')?.textContent?.trim()).toBe('3 projects on this device');
+    });
+
+    it('uses the shorter return delay for the CTA', async () => {
+      seed(['Kitchen']);
+      const { cta } = await setup();
+      expect(cta.classList.contains('has-summary')).toBe(true);
     });
 
     it('uses the singular for one project', async () => {

@@ -59,9 +59,9 @@ export const CAMERA_HELP_ID = 'viewport-help';
       Drag to look around. Pinch or scroll to zoom. Two fingers or right-drag to move. With the
       keyboard: arrow keys to look around, plus and minus to zoom, 0 to reset the view.
     </p>
-    @if (colouring.active()) {
+    @if (colouring.colourOpen()) {
       <p [id]="colourHelpId" class="visually-hidden">
-        Colour mode is on. Use the Surfaces tab to pick a surface from a list.
+        Colour is open. Use the What and Which rows to pick a surface from a list.
       </p>
     }
   `,
@@ -86,9 +86,9 @@ export class Viewport {
   protected readonly ready = computed(() => this.commands.status() === 'ready');
 
   protected readonly colourHelpId = 'viewport-colour-help';
-  /** Tells screen-reader users the canvas cannot be tapped by keyboard while Colour mode is on. */
+  /** Tells screen-reader users the canvas cannot be tapped by keyboard while Colour is open. */
   protected readonly describedBy = computed(() =>
-    this.colouring.active() ? `${this.helpId} ${this.colourHelpId}` : this.helpId,
+    this.colouring.colourOpen() ? `${this.helpId} ${this.colourHelpId}` : this.helpId,
   );
 
   protected readonly ariaLabel = computed(() => {
@@ -143,15 +143,15 @@ export class Viewport {
     });
     effect(() => {
       const scene = this.scene();
-      const selected = this.colouring.selected();
-      scene?.setHighlight(selected);
+      const highlighted = this.colouring.highlight();
+      scene?.setHighlight(highlighted);
     });
     effect(() => {
-      // A plan edit or mode switch can remove the selected wall or door.
+      // A plan edit or mode switch can remove the selected wall or door: back to "All walls".
       const shape = this.design.roomShape();
       const selected = this.colouring.selected();
       if (selected && !surfaceExists(selected, shape)) {
-        this.colouring.clear();
+        this.colouring.select({ kind: 'walls' }, 'list');
       }
     });
     effect(() => {
@@ -213,12 +213,10 @@ export class Viewport {
     this.scene.set(scene);
   }
 
-  /** A tap in the 3D view: a surface selects it, empty space clears the selection. */
+  /** A tap in the 3D view selects a surface; a tap on empty space keeps the selection. */
   private onPick(hit: SurfaceHit | null): void {
     if (hit) {
       this.colouring.select(hit, 'tap');
-    } else {
-      this.colouring.clear();
     }
   }
 

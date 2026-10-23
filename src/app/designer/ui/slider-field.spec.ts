@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { SliderField } from './slider-field';
+import { SCRUBBING_CLASS, SliderField } from './slider-field';
 
 @Component({
   imports: [SliderField],
@@ -135,5 +135,66 @@ describe('SliderField', () => {
     fixture.detectChanges();
     expect(el.querySelector('[aria-live=polite]')).toBe(live);
     expect(live.textContent).toContain('Use 2.00 to 12.00 m');
+  });
+
+  describe('scrubbing', () => {
+    const host = (el: HTMLElement): HTMLElement => el.querySelector('app-slider-field')!;
+
+    it('adds the scrubbing class and a value bubble while a pointer holds the thumb', () => {
+      const { fixture, el, range } = setup();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+      expect(el.querySelector('.bubble')).toBeNull();
+
+      range.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(true);
+      const bubble = el.querySelector('.bubble')!;
+      expect(bubble.textContent).toBe('5.00 m');
+      expect(bubble.getAttribute('aria-hidden')).toBe('true');
+
+      window.dispatchEvent(new Event('pointerup'));
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+      expect(el.querySelector('.bubble')).toBeNull();
+    });
+
+    it('follows the value while dragging and stops on pointercancel and lost capture', () => {
+      const { fixture, el, range } = setup();
+      range.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      range.value = '8';
+      range.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(el.querySelector('.bubble')?.textContent).toBe('8.00 m');
+
+      window.dispatchEvent(new Event('pointercancel'));
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+
+      range.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      fixture.detectChanges();
+      range.dispatchEvent(new Event('lostpointercapture'));
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+    });
+
+    it('does not scrub for the keyboard or the number field', () => {
+      const { fixture, el, range, num } = setup();
+      range.value = '6';
+      range.dispatchEvent(new Event('input'));
+      range.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      typeInto(num, '7');
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+      expect(el.querySelector('.bubble')).toBeNull();
+    });
+
+    it('does not scrub while disabled', () => {
+      const { fixture, host: h, el, range } = setup();
+      h.disabled.set(true);
+      fixture.detectChanges();
+      range.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+      fixture.detectChanges();
+      expect(host(el).classList.contains(SCRUBBING_CLASS)).toBe(false);
+    });
   });
 });

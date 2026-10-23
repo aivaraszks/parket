@@ -1,5 +1,3 @@
-@use './shared';
-
 :host {
   position: fixed;
   inset: 0;
@@ -60,8 +58,4 @@ img {
   color: var(--text-accent);
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
-}
-
-.btn {
-  @include shared.button;
 }

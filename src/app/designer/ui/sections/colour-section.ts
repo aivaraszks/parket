@@ -1,14 +1,4 @@
-import {
-  afterNextRender,
-  Component,
-  computed,
-  effect,
-  ElementRef,
-  inject,
-  Injector,
-  untracked,
-  viewChild,
-} from '@angular/core';
+import { Component, computed, effect, inject, untracked } from '@angular/core';
 import { SurfaceRef } from '../../plan/paint';
 import { ColouringState } from '../../state/colouring-state';
 import { DesignState } from '../../state/design-state';
@@ -42,19 +32,17 @@ function list(names: readonly string[]): string {
 }
 
 @Component({
-  selector: 'app-surfaces-tab',
+  selector: 'app-colour-section',
   imports: [SurfaceList, SwatchGroup],
-  templateUrl: './surfaces-tab.html',
-  styleUrl: './surfaces-tab.scss',
+  templateUrl: './colour-section.html',
+  styleUrl: './colour-section.scss',
 })
-export class SurfacesTab {
+export class ColourSection {
   protected readonly state = inject(DesignState);
   protected readonly colouring = inject(ColouringState);
   private readonly confirm = inject(ColourConfirm);
   private readonly announcer = inject(ColourAnnouncer);
   private readonly toasts = inject(Toasts);
-  private readonly injector = inject(Injector);
-  private readonly palette = viewChild<ElementRef<HTMLElement>>('palette');
 
   protected readonly items = computed(() =>
     surfaceItems(this.state.roomShape(), this.state.mode() === 'simple', {
@@ -159,27 +147,29 @@ export class SurfacesTab {
   );
 
   constructor() {
-    // Opening the tab selects "All walls" (the palette is always there).
-    if (untracked(() => this.colouring.selected()) === null) {
-      this.colouring.select({ kind: 'walls' }, 'list');
-    }
-    // With Colour mode off nothing can be "no selection": fall back to "All walls" again.
+    // Colour is open: a selection always exists. It falls back to "All walls" when the selected
+    // surface is gone (the room shape changed) or was never set.
     effect(() => {
-      if (this.colouring.selected() === null && !this.colouring.active()) {
+      const selected = this.colouring.selected();
+      if (selected === null || !findItem(this.items(), selected)) {
         untracked(() => this.colouring.select({ kind: 'walls' }, 'list'));
       }
     });
-    // A tap in 3D made this selection: bring the palette into view (focus stays on the canvas).
+    // A tap in 3D made this selection: say so (focus stays on the canvas).
     let seen = untracked(() => this.colouring.lastTap());
     effect(() => {
       const taps = this.colouring.lastTap();
       if (taps !== seen) {
         seen = taps;
-        this.scrollToPalette();
+        untracked(() => this.announceSelection());
       }
     });
-    if (untracked(() => this.colouring.active() && this.colouring.selected() !== null)) {
-      this.scrollToPalette();
+  }
+
+  private announceSelection(): void {
+    const item = findItem(this.items(), this.colouring.selected());
+    if (item) {
+      this.announcer.say(`${item.label.replace(' (window)', '')} selected.`);
     }
   }
 
@@ -194,18 +184,6 @@ export class SurfacesTab {
     return { item, presets, value, defaultLabel, customLabel, defaultText };
   }
 
-  private scrollToPalette(): void {
-    afterNextRender(() => this.palette()?.nativeElement.scrollIntoView?.({ block: 'nearest' }), {
-      injector: this.injector,
-    });
-  }
-
-  /** Phones: the Done button next to the hint turns Colour mode off. */
-  protected endColourMode(): void {
-    this.colouring.setActive(false);
-    this.announcer.say('Colour mode off.');
-  }
-
   protected onPick(hex: string | null): void {
     const t = this.target();
     if (!t) {
@@ -217,6 +195,7 @@ export class SurfacesTab {
       return;
     }
     this.state.setSurfaceColor(ref, hex);
+    this.colouring.markColourPicked();
     this.announce(t, hex);
   }
 
@@ -261,6 +240,7 @@ export class SurfacesTab {
       body,
       onConfirm: () => {
         this.state.setSurfaceColor({ kind: 'walls' }, hex);
+        this.colouring.markColourPicked();
         const mode = this.state.mode();
         const shape = this.state.roomShape();
         this.announcer.say(

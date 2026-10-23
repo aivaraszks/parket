@@ -6,6 +6,35 @@ fieldset {
 
 @include shared.swatch;
 
+// One strip: a single row that scrolls sideways with a soft edge fade.
+fieldset .options {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  // Room for the focus ring and the selected ring of the first and last swatches.
+  padding: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--chip-fade-w),
+    #000 calc(100% - var(--chip-fade-w)),
+    transparent
+  );
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.choice {
+  flex: none;
+  scroll-snap-align: start;
+}
+
 .plus {
   position: absolute;
   inset: 0;

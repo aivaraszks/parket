@@ -1,25 +1,29 @@
 import { TestBed } from '@angular/core/testing';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { opening, planFromPoints, RECT } from '../../plan/plan-fixtures';
-import { ColouringState } from '../../state/colouring-state';
+import { ColouringState, HIGHLIGHT_FADE_MS } from '../../state/colouring-state';
 import { DesignState } from '../../state/design-state';
 import { ColourAnnouncer } from '../colour-announcer';
 import { ColourConfirm } from '../colour-confirm';
 import { Toasts } from '../toasts';
-import { SurfacesTab } from './surfaces-tab';
+import { ColourSection } from './colour-section';
 
 function setup() {
   localStorage.clear();
   TestBed.resetTestingModule();
   const state = TestBed.inject(DesignState);
   const colouring = TestBed.inject(ColouringState);
-  const fixture = TestBed.createComponent(SurfacesTab);
+  colouring.setColourOpen(true);
+  const fixture = TestBed.createComponent(ColourSection);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
   const q = (sel: string) => el.querySelector<HTMLInputElement>(sel)!;
   const chip = (label: string): HTMLInputElement =>
     Array.from(el.querySelectorAll<HTMLElement>('app-surface-list label.item'))
-      .find((l) => l.textContent!.includes(label))!
+      .find((l) => {
+        const input = l.querySelector('input')!;
+        return (input.getAttribute('aria-label') ?? l.textContent!.trim()) === label;
+      })!
       .querySelector('input')!;
   const choose = (label: string): void => {
     chip(label).click();
@@ -34,51 +38,73 @@ function setup() {
   return { fixture, el, state, colouring, q, chip, choose, swatch, pick };
 }
 
-describe('SurfacesTab', () => {
+describe('ColourSection', () => {
   beforeEach(() => TestBed.inject(Toasts).dismiss());
 
-  it('selects All walls on open and lists walls and other surfaces in simple mode', () => {
+  it('shows What and Which rows and the strip for All walls in simple mode', () => {
     const { el, colouring, q } = setup();
     expect(colouring.selected()).toEqual({ kind: 'walls' });
-    const legends = Array.from(el.querySelectorAll('app-surface-list legend')).map(
-      (l) => l.textContent,
+    const what = Array.from(el.querySelectorAll('[aria-label="What to colour"] .face')).map((f) =>
+      f.textContent!.trim(),
     );
-    expect(legends).toEqual(['Walls', 'Other']);
-    const labels = Array.from(el.querySelectorAll('app-surface-list .face')).map((f) =>
-      f.textContent!.replace(/\s+/g, ' ').trim(),
+    expect(what).toEqual(['Walls', 'Ceiling', 'Skirting']);
+    const which = Array.from(el.querySelectorAll('[aria-label="Which one"] input')).map((i) =>
+      i.getAttribute('aria-label'),
     );
-    expect(labels).toEqual([
-      'All walls',
-      'Wall 1 (window)',
-      'Wall 2',
-      'Wall 3',
-      'Wall 4',
-      'Ceiling',
-      'Skirting',
-    ]);
-    expect(el.textContent).toContain('Doors can be added in a custom room shape.');
-    expect(el.querySelector('h3')?.textContent).toBe('Colour for all walls');
+    expect(which).toEqual(['All walls', 'Wall 1, has the window', 'Wall 2', 'Wall 3', 'Wall 4']);
     expect(q('input[aria-label="Custom wall colour"]')).not.toBeNull();
-    expect(el.textContent).not.toContain('Tap a wall, door');
+    expect(el.querySelector('h3')).toBeNull();
+    expect(el.textContent).not.toContain('Done');
   });
 
-  it('shows the hint while Colour mode is on and a prompt when nothing is selected', () => {
-    const { fixture, el, colouring } = setup();
-    colouring.setActive(true);
-    colouring.clear();
-    fixture.detectChanges();
-    expect(el.textContent).toContain('Tap a wall, door, skirting or the ceiling.');
-    expect(el.textContent).toContain('Select a surface to colour it.');
-    expect(el.querySelector('app-swatch-group')).toBeNull();
+  it('keeps the Which row for ceiling and skirting with a note', () => {
+    const { el, choose } = setup();
+    choose('Ceiling');
+    expect(el.querySelector('app-surface-list .row .note')?.textContent).toBe('Whole ceiling.');
+    expect(el.querySelector('[aria-label="Which one"]')).toBeNull();
+    choose('Skirting');
+    expect(el.querySelector('app-surface-list .row .note')?.textContent).toBe('All skirting.');
   });
 
-  it('falls back to All walls when Colour mode is off and nothing is selected', () => {
+  it('choosing a What chip selects All of that group and Which picks one', () => {
+    const { colouring, choose } = setup();
+    choose('Skirting');
+    expect(colouring.selected()).toEqual({ kind: 'skirting' });
+    choose('Walls');
+    expect(colouring.selected()).toEqual({ kind: 'walls' });
+    choose('Wall 2');
+    expect(colouring.selected()).toEqual({ kind: 'wall', id: 's1' });
+  });
+
+  it('falls back to All walls when the selection is cleared', () => {
     const { fixture, colouring } = setup();
-    colouring.setActive(true);
     colouring.clear();
-    colouring.setActive(false);
     fixture.detectChanges();
     expect(colouring.selected()).toEqual({ kind: 'walls' });
+  });
+
+  it('follows a 3D tap in both rows and announces it', () => {
+    const { fixture, colouring, el } = setup();
+    colouring.select({ kind: 'wall', id: 's2' }, 'tap');
+    fixture.detectChanges();
+    const checked = Array.from(el.querySelectorAll<HTMLInputElement>('input[type=radio]:checked'))
+      .filter((i) => i.closest('app-surface-list'))
+      .map((i) => i.getAttribute('aria-label') ?? i.closest('label')!.textContent!.trim());
+    expect(checked).toEqual(['Walls', 'Wall 3']);
+    expect(TestBed.inject(ColourAnnouncer).message()).toBe('Wall 3 selected.');
+  });
+
+  it('a colour pick starts the highlight fade', () => {
+    const { pick, colouring } = setup();
+    vi.useFakeTimers();
+    try {
+      pick('Sage');
+      expect(colouring.highlight()).not.toBeNull();
+      vi.advanceTimersByTime(HIGHLIGHT_FADE_MS);
+      expect(colouring.highlight()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('colours all walls from a palette swatch and announces it', () => {
@@ -92,7 +118,7 @@ describe('SurfacesTab', () => {
     const { el, colouring, choose, state, pick } = setup();
     choose('Ceiling');
     expect(colouring.selected()).toEqual({ kind: 'ceiling' });
-    expect(el.querySelector('h3')?.textContent).toBe('Colour for the ceiling');
+    expect(el.querySelector('legend')?.textContent).toBe('Colour for the ceiling');
     pick('Charcoal');
     expect(state.ceilingColor()).toBe('#3d3a38');
   });
@@ -163,7 +189,7 @@ describe('SurfacesTab', () => {
 
   it('counts the accent walls when there are more than three', () => {
     const { state, choose, pick } = setup();
-    for (const w of ['Wall 1', 'Wall 2', 'Wall 3', 'Wall 4']) {
+    for (const w of ['Wall 1, has the window', 'Wall 2', 'Wall 3', 'Wall 4']) {
       choose(w);
       pick('Navy');
     }
@@ -186,10 +212,11 @@ describe('SurfacesTab', () => {
     state.setMode('custom');
     state.setPlan(plan);
     fixture.detectChanges();
-    const legends = Array.from(el.querySelectorAll('app-surface-list legend')).map(
-      (l) => l.textContent,
+    const what = Array.from(el.querySelectorAll('[aria-label="What to colour"] .face')).map((f) =>
+      f.textContent!.trim(),
     );
-    expect(legends).toEqual(['Walls', 'Doors', 'Other']);
+    expect(what).toEqual(['Walls', 'Doors', 'Ceiling', 'Skirting']);
+    choose('Doors');
     choose('Door 2');
     expect(el.textContent).toContain('Paints the door and its frame.');
     expect(el.textContent).toContain('Door 2 is automatic.');
@@ -203,21 +230,12 @@ describe('SurfacesTab', () => {
     expect(q('input[aria-label="Custom colour for all doors"]')).not.toBeNull();
   });
 
-  it('Done turns Colour mode off and says so', () => {
-    const { fixture, el, colouring } = setup();
-    colouring.setActive(true);
-    fixture.detectChanges();
-    el.querySelector<HTMLButtonElement>('button.done')!.click();
-    expect(colouring.active()).toBe(false);
-    expect(TestBed.inject(ColourAnnouncer).message()).toBe('Colour mode off.');
-  });
-
   it('starts sentences with a capital in the value line and the announcement', () => {
     const { fixture, el, choose, pick } = setup();
     choose('Ceiling');
     pick('Sand');
     expect(TestBed.inject(ColourAnnouncer).message()).toBe('Ceiling: Sand.');
-    expect(el.querySelector('.palette p:last-child')!.textContent).toBe('Ceiling is Sand.');
+    expect(el.querySelector('.lines p:last-child')!.textContent).toBe('Ceiling is Sand.');
     fixture.detectChanges();
   });
 });

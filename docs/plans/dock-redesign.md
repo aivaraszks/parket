@@ -173,3 +173,9 @@ Open questions (recommended default first):
 - Q2: in Colour, a tap on empty space keeps the current selection.
 - Q3: first visit keeps the tray closed and shows only the look-around hint.
 - Q4, Q5: defaults. The saved image is the room centred on the full canvas. With reduced motion, the slider fade happens instantly.
+
+## Spike result (2026-10-23)
+
+- GO on D1 (full-screen canvas + `setViewOffset`). Headless render cost: 1.3x for full-screen and 1.55x for framed, relative to today's half canvas. No visual jump. Picking is 73/73 correct through the offset.
+- Add `controls.panSpeed = H / fh` in applyFrame: panning is otherwise slower with the tray open, not faster.
+- Real-device fps check (≥ 30 fps) is pending with the user via `?frame=debug` (F toggles a 40% inset).

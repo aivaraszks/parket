@@ -13,7 +13,17 @@ describe('SceneCommands', () => {
       setPreset: vi.fn(),
       zoom: vi.fn(),
       exportPng: vi.fn(() => Promise.resolve(new Blob(['x']))),
+      setFrame: vi.fn(),
     };
+  });
+
+  it('forwards the frame and replays the last one to a newly attached scene', () => {
+    const insets = { top: 10, right: 0, bottom: 200, left: 0 };
+    commands.setFrame(insets);
+    commands.attach(controller);
+    expect(controller.setFrame).toHaveBeenCalledWith(insets);
+    commands.setFrame({ top: 0, right: 0, bottom: 0, left: 0 });
+    expect(controller.setFrame).toHaveBeenLastCalledWith({ top: 0, right: 0, bottom: 0, left: 0 });
   });
 
   it('starts in the loading status', () => {

@@ -1,10 +1,10 @@
-import { Component, input, output } from '@angular/core';
+import { afterNextRender, Component, ElementRef, inject, input, output } from '@angular/core';
 import { Species } from '../state/species';
 import { isLightColor } from './swatch-group';
 
 let nextId = 0;
 
-/** Wood species as radio cards: a swatch and a name. */
+/** Wood species as a one-row strip (scrolls sideways) of radio items: a swatch and a name. */
 @Component({
   selector: 'app-wood-picker',
   template: `
@@ -12,7 +12,7 @@ let nextId = 0;
       <legend>Wood</legend>
       <div class="options">
         @for (item of species(); track item.id) {
-          <label class="choice card">
+          <label class="choice">
             <input
               type="radio"
               [name]="name"
@@ -53,6 +53,17 @@ export class WoodPicker {
   readonly picked = output<string>();
 
   protected readonly name = `wood-${nextId++}`;
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    // The strip scrolls sideways: start with the chosen wood in view.
+    afterNextRender(() =>
+      this.host.nativeElement
+        .querySelector('input:checked')
+        ?.parentElement?.scrollIntoView?.({ inline: 'nearest', block: 'nearest' }),
+    );
+  }
+
   protected readonly checkColor = (hex: string): string =>
     isLightColor(hex) ? 'var(--text-on-accent)' : 'var(--text-primary)';
 }

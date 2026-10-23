@@ -1,13 +1,12 @@
 @use '../phone-scale' as phone;
 
 :host {
-  --panel-h: max(var(--plan-panel-collapsed), calc(10.5rem * var(--ui-scale)));
   position: fixed;
   inset: 0;
   z-index: var(--z-plan);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) var(--panel-h);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas:
     'bar'
     'canvas'
@@ -15,10 +14,6 @@
   background: var(--plan-bg);
   color: var(--text-primary);
   font-family: var(--font-ui);
-}
-
-:host(.panel-expanded) {
-  --panel-h: var(--plan-panel-expanded);
 }
 
 app-plan-canvas {
@@ -55,7 +50,7 @@ app-plan-canvas {
   }
 }
 
-@media (min-width: 700px) and (max-height: 499px) and (max-width: 899px) {
+@media (min-width: 560px) and (max-height: 499px) and (max-width: 899px) {
   :host {
     grid-template-columns: minmax(0, 1fr) 45%;
     grid-template-rows: auto minmax(0, 1fr);

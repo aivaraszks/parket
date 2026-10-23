@@ -1,0 +1,57 @@
+@use '../shared';
+
+// Shared by every tray section: stacked rows and the native "More" disclosure.
+@include shared.tab-content;
+
+.more {
+  border-top: 1px solid var(--surface-hairline);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--target-min);
+    color: var(--text-muted);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: '';
+      width: 0.5rem;
+      height: 0.5rem;
+      margin-right: var(--space-1);
+      border-right: 2px solid currentcolor;
+      border-bottom: 2px solid currentcolor;
+      transform: translateY(-25%) rotate(45deg);
+      transition: transform var(--dur-fast);
+
+      @media (prefers-reduced-motion: reduce) {
+        transition: none;
+      }
+    }
+
+    &:hover {
+      color: var(--text-primary);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--focus-ring-color);
+      outline-offset: -4px;
+    }
+  }
+
+  &[open] summary::after {
+    transform: translateY(25%) rotate(225deg);
+  }
+
+  .fields {
+    padding-top: var(--space-2);
+  }
+}

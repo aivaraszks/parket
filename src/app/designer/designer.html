@@ -3,14 +3,23 @@
   [attr.inert]="covered() ? '' : null"
   (pointerdown)="onStagePointer()"
   (keydown)="onStagePointer()"
-  (keydown.escape)="onStageEscape($event)"
+  (keydown.escape)="onEscape($event)"
 >
   <h1 class="visually-hidden">Floor designer</h1>
   <app-view-toolbar (projects)="projectsOpen.set(true)" />
   <app-viewport />
   <app-viewport-status />
+  <app-colour-hint [available]="scene.status() === 'ready'" />
 </main>
-<app-controls-sheet [attr.inert]="covered() ? '' : null" [(stop)]="stop" [(tab)]="tab" />
+<div
+  class="chrome"
+  #chrome
+  [attr.inert]="covered() ? '' : null"
+  (keydown.escape)="onEscape($event)"
+>
+  <app-tray [section]="section()" (closed)="closeSection()" />
+  <app-dock [open]="section()" (toggled)="onDockToggle($event)" />
+</div>
 <router-outlet (activate)="editorOpen.set(true)" (deactivate)="onEditorClosed()" />
 <app-editor-loader />
 <app-toast-host [attr.inert]="dialogOpen() ? '' : null" />

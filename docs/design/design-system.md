@@ -98,7 +98,8 @@ Ratios are computed (WCAG relative luminance). "Worst case" = panel over a pure 
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--surface-overlay` | `rgb(30 21 14 / 0.88)` | side panel, bottom sheet, top-bar chips; with `backdrop-filter: var(--surface-blur)` |
+| `--surface-overlay` | `rgb(30 21 14 / 0.88)` | top-bar chips, plan editor panels; with `backdrop-filter: var(--surface-blur)` |
+| `--tray-bg` | `rgb(30 21 14 / 0.92)` | dock, rail, tray, column (near-opaque; ratios in `components/dock.md`: muted 8.0:1 worst case) |
 | `--surface-solid` | `#1e150e` | fallback when `backdrop-filter` is unsupported (use instead of overlay), focus halo |
 | `--surface-raised` | `#2b1f16` | toast, popover, cards |
 | `--surface-dialog` | `#231810` | dialog; backdrop `--surface-scrim` |
@@ -131,25 +132,25 @@ All targets at least `--target-min` (44px); gap between adjacent targets at leas
 
 **Swatch** (wall/ceiling colour, wood card): 44px square (wood card: 44px swatch + name `--text-sm`), `--radius-md`, 1px `--control-border` always (dark colours stay visible). Selected: 2px `--accent` ring at 2px offset plus a check icon (dark or light chosen by swatch luminance) in the corner. Hover: ring `--control-border`. Custom colour: a swatch with a "+" icon, same size.
 
-**Tabs**: five equal-width tabs (scrollable row if not fitting), height 44px, `--text-sm` medium. Inactive `--text-muted`; active `--text-primary` with a 2px `--accent` bar under it. Hover `--field-bg`. Focus ring inset-safe (outline variant). Divider `--surface-hairline`.
+**Dock / rail / tray** (replace tabs and the bottom sheet): a toolbar of five disclosure buttons (Room, Floor, Colour, Light, Estimate) and one short tray above it; desktop rail + 320px column. Sizes, translucency with contrast, scrub-to-see fade, value bubble, chip rows, swatch strip and the five icons: `docs/design/components/dock.md`. No tabs component remains.
 
 **Segmented control** (Finish): `--field-bg` track, 1px `--control-border`, `--radius-md`; options 44px high; selected option fill `--accent` with `--text-on-accent`.
 
-**Buttons** (height 44px, `--radius-md`, `--text-sm` semibold, padding `--space-4`): Primary = `--accent` fill, `--text-on-accent`; hover `--accent-hover`, active `--accent-active`. Secondary (Reset design, Close) = transparent, 1px `--control-border`, `--text-primary`; hover `--field-bg-hover`. Icon button = 44px square, Secondary look. Save image is Primary; Views is Secondary. Busy: spinner replaces icon, button disabled-styled but text stays legible (use opacity .7 not .45 plus `aria-busy`).
+**Buttons** (height 44px, `--radius-md`, `--text-sm` semibold, padding `--space-4`): Primary = `--accent` fill, `--text-on-accent`; hover `--accent-hover`, active `--accent-active`. Secondary (Reset design, Close) = transparent, 1px `--control-border`, `--text-primary`; hover `--field-bg-hover`. Icon button = 44px square, Secondary look. Save image is Primary; Camera is Secondary. Busy: spinner replaces icon, button disabled-styled but text stays legible (use opacity .7 not .45 plus `aria-busy`).
 
-**Bottom-sheet handle**: a 44px-tall button across the sheet top; the visible bar is `--sheet-handle-w` x `--sheet-handle-h` (40x4), `--radius-pill`, `--control-border` colour, centred. Sheet: `--surface-overlay` + blur, top radius `--radius-lg`, `--shadow-panel`, stops `--sheet-peek/half/full`, move `--dur-sheet` `--ease-out` (none under reduced motion), `z-index: var(--z-sheet)`. Desktop panel: `--panel-width` wide, no top radius, left hairline.
+**Tray** (was bottom sheet): `--tray-bg` + `--tray-blur`, top radius `--radius-lg`, `--shadow-panel`, height by content up to `--tray-cap` (45dvh, minimum `--tray-min-h`), slide `--dur-tray` `--ease-out` (none under reduced motion), `z-index: var(--z-tray)`. No handle, no stops. The old `--sheet-*`, `--z-sheet` and `--dur-sheet` tokens are removed.
 
-**Toast**: `--surface-raised`, 1px `--surface-hairline`, `--radius-md`, `--shadow-toast`, `--text-sm` `--text-primary`, padding `--space-3` `--space-4`; action link `--text-accent` semibold, underlined. Error toast adds a left 3px `--text-error` bar and an icon. Placed above the sheet peek, bottom-centre, max-width 28rem; enter fade + 8px rise `--dur-base`. `z-index: var(--z-toast)`.
+**Toast**: `--surface-raised`, 1px `--surface-hairline`, `--radius-md`, `--shadow-toast`, `--text-sm` `--text-primary`, padding `--space-3` `--space-4`; action link `--text-accent` semibold, underlined. Error toast adds a left 3px `--text-error` bar and an icon. Placed above the dock and tray (`--frame-bottom`), bottom-centre, max-width 28rem; enter fade + 8px rise `--dur-base`. `z-index: var(--z-toast)`.
 
 **Dialog**: `--surface-dialog`, `--radius-lg`, `--shadow-dialog`, padding `--space-6`, max-width 26rem; scrim `--surface-scrim` (+ blur 4px). Title `--text-xl` semibold; body `--text-md` `--text-muted`; image preview `--radius-md` max-height 50vh; Close = Primary button, full width on phone.
 
-**Popover (Views menu)**: like Toast surface, `--z-popover`, items 44px high, hover `--field-bg`.
+**Popover (Camera menu, row menus)**: like Toast surface, `--z-popover`, items 44px high, hover `--field-bg`.
 
 **Loader / message card**: bg `--color-floor-dark`; text `--text-primary` `--text-md`; indeterminate bar 4px `--accent` on `--control-border`.
 
 ## Landing CTA pill ("Design your floor")
 
-A link (`routerLink="/designer"`), 48px high (`--cta-height`), padding `0 var(--cta-pad-x)`, `--radius-pill`, `--font-ui` `--text-sm` semibold, uppercase, `--cta-tracking` 0.2em, white text (`--color-text-on-floor`), 1px `--cta-border`, fill `--cta-bg` with `backdrop-filter: blur(6px)`, `--shadow-text`-style soft shadow `--shadow-rule`. Hover and focus: fill `--cta-bg-hover` `#f0b860`, text `--cta-text-hover` (dark, 10.1:1); focus also shows `--focus-ring`. Active: fill `--accent-active`. Appears after the sequence: fade + 8px rise over `--dur-cta-in` starting `--delay-cta` (hidden with `visibility` until then; shown at once on early input or reduced motion). The small kicker "Herringbone, in 3D" above: `--text-xs`, caps, `--tracking-caps`, white at 0.85 opacity over the veil (about 6:1).
+A link (`routerLink="/designer"`), 48px high (`--cta-height`), padding `0 var(--cta-pad-x)`, `--radius-pill`, `--font-ui` `--text-sm` semibold, uppercase, `--cta-tracking` 0.2em, white text (`--color-text-on-floor`), 1px `--cta-border`, fill `--cta-bg` with `backdrop-filter: blur(6px)`, `--shadow-text`-style soft shadow `--shadow-rule`. Hover and focus: fill `--cta-bg-hover` `#f0b860`, text `--cta-text-hover` (dark, 10.1:1); focus also shows `--focus-ring`. Active: fill `--accent-active`. Appears during the sequence: fade + 8px rise over `--dur-cta-in` starting `--delay-cta` (2.4s first visit) or `--delay-cta-return` (0.8s when the user has a project); it accepts pointer input from the first frame (hidden with `visibility` until then; shown at once on early input or reduced motion). The small kicker "Herringbone, in 3D" above: `--text-xs`, caps, `--tracking-caps`, white at 0.85 opacity over the veil (about 6:1).
 Contrast: white on `--cta-bg` over the brightest sun-lit oak (lum about 0.49) blends to lum about 0.11, so 6.6:1 (AA 4.5:1 passes); over normal oak it is higher. Estimated; verify on a screenshot.
 
 **Continue state.** When the user already has projects the landing shows a second, primary pill "Continue: {name}" (filled `--cta-primary-bg`) above the glass "Design your floor" (now secondary) and a muted count line, with a local dark pool `--veil-cta` behind the block; layout stacks below 560px and goes side by side from 560px. Full spec, contrast and offsets (`--cta-reserve*`): `docs/design/components/projects.md`, section 8.
@@ -160,7 +161,7 @@ Toolbar Projects and Share chips, the Projects dialog (bottom sheet on phones, c
 
 ## Compact phone scale
 
-On phone layouts (bottom sheet: below 900px, excluding the landscape side panel at min-width 700px and max-height 499px) the designer and plan editor hosts redefine the size tokens at 0.8x, to leave more room for the 3D view. Desktop, the landscape side panel and the landing page are unchanged. Source: `src/app/designer/_phone-scale.scss` (mixin `phone-tokens`, included by `designer.scss` and `plan-editor.scss`).
+On phone layouts (dock + tray: below 900px, excluding the landscape rail layout at min-width 560px and max-height 499px) the designer and plan editor hosts redefine the size tokens at 0.8x, to leave more room for the 3D view. Desktop, the landscape side panel and the landing page are unchanged. Source: `src/app/designer/_phone-scale.scss` (mixin `phone-tokens`, included by `designer.scss` and `plan-editor.scss`).
 
 | Tokens | Phone value |
 | --- | --- |
@@ -170,18 +171,23 @@ On phone layouts (bottom sheet: below 900px, excluding the landscape side panel 
 | `--radius-sm` / `md` / `lg` | 0.3 / 0.5 / 0.8 rem |
 | `--target-min` | 2.2rem (35px; never below 24px, WCAG 2.5.8) |
 | `--thumb-size` / `--track-height` | 1.4rem / 0.2rem |
-| `--sheet-handle-w` / `-h` | 2rem / 0.2rem |
 | `--plan-bar-h` | 2.8rem |
+| `--dock-h` / `--dock-item-min-w` / `--dock-icon-size` | 3.2rem / 3.2rem / 1.2rem |
+| `--tray-min-h` / `--tray-view-reserve` | 9.6rem / 3.2rem |
+| `--bubble-h` / `-min-w` / `-gap` | 1.6 / 2.4 / 0.4 rem |
+| `--chip-fade-w` / `--wood-chip-w` / `--hint-max-w` | 1.2 / 4.2 / 17.6 rem |
+
+Chips (`--chip-h`) and strip swatches follow `--target-min` (35px); text never below `--text-xs` 11.2px; targets never below 24px.
 
 Not scaled: `--text-input` (1rem), so text and number inputs keep a 16px font (smaller makes iOS Safari zoom on focus); their height, padding and width shrink instead. Also unscaled: SVG plan labels, handle radii and the 44px touch hit area on the plan canvas, 1-2px borders and focus rings, `max-width` caps (dialog, toast, chips), and the viewport meta.
 
 ## Breakpoints
 
-Media queries cannot read custom properties, so values are fixed constants: phone sheet below 900px; desktop side panel at min-width 900px; landscape phone side panel at min-width 700px and max-height 499px. Panel width `--panel-width` 360px.
+Media queries cannot read custom properties, so values are fixed constants: phone dock below 900px; desktop rail + column at min-width 900px; landscape phone rail + column at min-width 560px and max-height 499px; presets inline in the top bar from 1200px. Rail `--rail-w` 72px, column `--column-w` 320px (plan editor side panel keeps `--panel-width`).
 
 ## Motion (UI)
 
-`--dur-fast` 120ms, `--dur-base` 200ms, `--dur-sheet` 320ms, `--dur-fade-wood` 300ms with `--ease-out`. Reduced motion: no transitions on sheet, toast, wood fade, camera.
+`--dur-fast` 120ms, `--dur-base` 200ms, `--dur-tray` 280ms (tray slide and camera frame tween), `--dur-scrub` 160ms (tray fade while scrubbing), `--dur-fade-wood` 300ms with `--ease-out`. `--dur-sheet` 320ms is deprecated. Reduced motion: no tray slide, frame tween, toast, wood fade or camera animation; the scrub fade is instant.
 
 ## Wood species (for `species.ts`)
 
@@ -259,7 +265,7 @@ Plan background `--plan-bg` `#1a110a` (luminance 0.0064, solid, no blur). Non-te
 
 ## Layout tokens
 
-`--plan-bar-h` 56px top bar; bottom panel stops `--plan-panel-collapsed` 20% and `--plan-panel-expanded` 60% (sheet tokens otherwise: `--surface-overlay`, `--surface-blur`, `--radius-lg` top radius, `--shadow-panel`, `--dur-sheet`, `--ease-out`); side panel `--panel-width` at min-width 900px and in landscape phones, same breakpoints as the designer. The overlay sits at `--z-plan` 35 (above sheet 20 and popover 30, below toast 40 so "Started over. Undo" shows over it, and below dialog 50).
+`--plan-bar-h` 56px top bar; phone bottom action bar and short card (surface tokens `--surface-overlay`, `--surface-blur`, `--radius-lg` top radius, `--shadow-panel`); side panel `--panel-width` at min-width 900px and in landscape phones, same breakpoints as the designer. The overlay sits at `--z-plan` 35 (above tray 20 and popover 30, below toast 40 so "Started over. Undo" shows over it, and below dialog 50).
 
 ## Reduced motion, forced colours
 

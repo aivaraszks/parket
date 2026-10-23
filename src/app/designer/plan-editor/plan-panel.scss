@@ -7,9 +7,7 @@
   min-height: 0;
   overflow-y: auto;
   background: var(--surface-solid);
-  border-top-left-radius: var(--radius-lg);
-  border-top-right-radius: var(--radius-lg);
-  box-shadow: var(--shadow-panel);
+  border-left: 1px solid var(--surface-hairline);
   font-family: var(--font-ui);
   font-size: var(--text-md);
   color: var(--text-primary);
@@ -20,39 +18,21 @@
   }
 }
 
-.handle {
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: var(--target-min);
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-}
-
-.bar {
-  width: var(--sheet-handle-w);
-  height: var(--sheet-handle-h);
-  background: var(--control-border);
-  border-radius: var(--radius-pill);
-}
-
-.summary,
-.content {
+.content,
+.form {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: 0 var(--space-4) var(--space-4);
 }
 
-// Phone: collapsed shows the summary, expanded shows the full content.
-:host(:not(.expanded)) .content {
-  display: none;
+.content {
+  padding: var(--space-4);
 }
 
-:host(.expanded) .summary {
+// Phone-only parts: the action bar, the list card and the openings disclosure.
+.actionbar,
+.lists,
+.phone-only {
   display: none;
 }
 
@@ -67,32 +47,29 @@
   }
 }
 
-.title {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-}
-
 .form-title {
   margin: 0;
   font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
-}
 
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  &:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+
+  // A reason under its button (Delete at 3 corners).
+  .hint {
+    flex: 1 0 100%;
+  }
 }
 
 .btn {
-  @include shared.button;
   align-self: flex-start;
 }
 
@@ -157,8 +134,12 @@
   list-style: none;
 }
 
-.row-btn {
+.row-btn,
+.face {
   @include shared.colour-transition;
+}
+
+.row-btn {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -228,7 +209,6 @@
 }
 
 .face {
-  @include shared.colour-transition;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -250,31 +230,98 @@ input:focus-visible + .face {
   outline-offset: -4px;
 }
 
-// Desktop and landscape phones: always the full content in a side panel.
-@mixin side-panel {
+// Phone: an action bar for the selection and, on request, a short card above it. The side panel
+// (desktop, landscape phones) keeps everything in one scrolling column.
+@mixin phone {
   :host {
-    width: auto;
-    border-radius: 0;
-    border-left: 1px solid var(--surface-hairline);
-    box-shadow: none;
+    overflow-y: visible;
+    border-left: 0;
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
+    box-shadow: var(--shadow-panel);
   }
 
-  .handle,
-  .summary {
+  .desk-only {
     display: none;
   }
 
-  :host(:not(.expanded)) .content,
+  .phone-only {
+    display: block;
+  }
+
   .content {
+    display: none;
+    padding: var(--space-3) var(--space-4) 0;
+  }
+
+  :host(.card-open) .content,
+  :host(.list-open) .lists {
     display: flex;
-    padding-top: var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
+    max-height: var(--plan-card-max-h);
+    overflow-y: auto;
+  }
+
+  .lists {
+    padding: var(--space-3) var(--space-4) 0;
+  }
+
+  .actionbar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4) var(--space-3);
+  }
+
+  .context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+
+    .hint {
+      flex: 1 1 auto;
+    }
+  }
+
+  .chip {
+    min-width: 0;
+    max-width: 100%;
+    margin-left: auto;
+  }
+
+  .chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .caret {
+    flex: none;
+    width: calc(1rem * var(--ui-scale));
+    height: calc(1rem * var(--ui-scale));
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform var(--dur-fast);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  .chip[aria-expanded='true'] {
+    border-color: var(--accent);
+
+    .caret {
+      transform: rotate(180deg);
+    }
   }
 }
 
-@media (min-width: 900px) {
-  @include side-panel;
-}
-
-@media (min-width: 700px) and (max-height: 499px) and (max-width: 899px) {
-  @include side-panel;
+@media (max-width: 559px), (min-height: 500px) and (max-width: 899px) {
+  @include phone;
 }

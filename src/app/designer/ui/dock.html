@@ -1,0 +1,32 @@
+<nav aria-label="Design sections">
+  <div
+    class="toolbar"
+    role="toolbar"
+    aria-label="Open a section"
+    [attr.aria-orientation]="vertical() ? 'vertical' : 'horizontal'"
+    (keydown)="onKeydown($event)"
+  >
+    @for (section of sections; track section.id) {
+      <button
+        type="button"
+        class="item"
+        [class.open]="open() === section.id"
+        [attr.data-section]="section.id"
+        aria-controls="designer-tray"
+        [attr.aria-expanded]="open() === section.id"
+        [attr.aria-label]="section.id === 'estimate' ? estimateLabel() : null"
+        [attr.tabindex]="tabStop() === section.id ? 0 : -1"
+        (focus)="tabStop.set(section.id)"
+        (click)="toggled.emit(section.id)"
+      >
+        @if (section.id === 'estimate') {
+          <app-estimate-summary />
+        } @else {
+          <app-section-icon [id]="section.id" [class.filled]="open() === section.id" />
+          <span class="label">{{ section.label }}</span>
+        }
+      </button>
+    }
+  </div>
+</nav>
+<app-estimate-live />

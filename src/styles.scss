@@ -1,4 +1,6 @@
 // Design tokens: see docs/design/design-system.md
+@use './app/designer/ui/shared';
+
 :root {
   // Colour
   --color-floor-dark: #2a190b;
@@ -122,12 +124,7 @@
   --target-min: 2.75rem;
   --thumb-size: 1.75rem;
   --track-height: 0.25rem;
-  --panel-width: 22.5rem;
-  --sheet-handle-w: 2.5rem;
-  --sheet-handle-h: 0.25rem;
-  --sheet-peek: 25%;
-  --sheet-half: 50%;
-  --sheet-full: 85%;
+  --panel-width: 22.5rem; // plan editor side panel only (the designer uses --column-w)
 
   // Elevation
   --shadow-panel: 0 -8px 32px rgb(12 6 2 / 0.45);
@@ -136,7 +133,8 @@
 
   // Z-index
   --z-view-ui: 10;
-  --z-sheet: 20;
+  --z-tray: 20; // tray, dock, rail (above the canvas, below popovers)
+  --z-bubble: 25; // slider value bubble (above the tray, below popovers)
   --z-popover: 30;
   --z-toast: 40;
   --z-dialog: 50;
@@ -144,8 +142,43 @@
   // Motion (UI)
   --dur-fast: 120ms;
   --dur-base: 200ms;
-  --dur-sheet: 320ms;
+  --dur-tray: 280ms; // tray slide and camera frame tween (same duration, same --ease-out)
+  --dur-scrub: 160ms; // tray fade while a slider thumb is held; 0 under reduced motion
   --dur-fade-wood: 300ms;
+
+  // Dock, rail, tray (docs/design/components/dock.md).
+  // 1x values (desktop, landscape phone rail). Phone values: src/app/designer/_phone-scale.scss.
+  --dock-h: 4rem; // bottom dock height without the safe-area inset
+  --dock-item-min-w: 4rem; // five items fit 320 CSS px
+  --dock-icon-size: 1.5rem; // 24 unit viewBox
+  --dock-icon-stroke: 1.75;
+  --dock-bar-h: 0.1875rem; // open-section marker bar (3px), beside it on the rail
+  --dock-active-bg: var(--project-row-current-bg);
+  --rail-w: 4.5rem; // desktop / landscape-phone rail, right edge
+  --rail-item-h: 4rem;
+  --column-w: 20rem; // 320px collapsible column beside the rail
+  --column-max: 45%; // of the viewport width, landscape phones
+  --tray-bg: rgb(30 21 14 / 0.92); // near-opaque at rest; 8:1+ for muted text over a white floor
+  --tray-bg-scrub: rgb(30 21 14 / 0.14); // while a slider thumb is held
+  --tray-blur: var(--surface-blur);
+  --tray-cap: 45dvh; // tray max height, phone
+  --tray-min-h: 12rem; // never shorter than this when open
+  --tray-view-reserve: 4rem; // 400% zoom: always leave this much view above the tray
+  --tray-header-h: var(--target-min);
+  --scrub-opacity: 0.3; // other rows while scrubbing (decorative, transient)
+  --bubble-bg: var(--surface-raised);
+  --bubble-text: var(--text-primary);
+  --bubble-h: 2rem;
+  --bubble-min-w: 3rem;
+  --bubble-gap: 0.5rem; // thumb edge to bubble
+  --chip-h: var(--target-min); // What / Which chips
+  --chip-min-w: var(--target-min);
+  --chip-gap: var(--space-2);
+  --chip-pad-x: var(--space-3);
+  --chip-fade-w: 1.5rem; // sideways-scroll edge fade on chip rows and strips
+  --strip-swatch: var(--target-min); // colour swatch in the strip
+  --wood-chip-w: 5rem; // wood item: swatch above its name (text-xs, 2 lines max)
+  --hint-max-w: 22rem; // first-use colour hint chip
 
   // Colouring mode (docs/design/components/colouring.md).
   // Sizes are base rem: components use calc(var(--x) * var(--ui-scale)) for the phone scale.
@@ -175,7 +208,8 @@
   --cta-pad-x: 2rem;
   --cta-tracking: 0.2em;
   --dur-cta-in: 0.6s;
-  --delay-cta: 3.6s;
+  --delay-cta: 2.4s; // first visit
+  --delay-cta-return: 0.8s; // returning user (a project summary exists)
 
   // Landing "Continue" (docs/design/components/projects.md, "Landing: Continue")
   --cta-primary-bg: var(--accent); // filled gold pill: text-on-accent 8.5:1, opaque
@@ -271,8 +305,7 @@
 
   // Layout
   --plan-bar-h: 3.5rem;
-  --plan-panel-collapsed: 20%;
-  --plan-panel-expanded: 60%;
+  --plan-card-max-h: 45dvh; // phone card above the action bar
   --plan-chip-max: 28rem;
   --z-plan: 35;
 }
@@ -285,8 +318,9 @@
 
 // Breakpoints (media queries cannot read custom properties; keep in sync):
 //   side-by-side landing pills: min-width 560px (and any max-height 480px landscape)
-//   phone -> desktop panel: min-width 900px
-//   landscape phone side panel: min-width 700px and max-height 499px
+//   phone (dock) -> desktop (rail + column): min-width 900px
+//   landscape phone (rail + column): min-width 560px and max-height 499px
+//   presets inline in the top bar: min-width 1200px
 
 :focus-visible {
   outline: none;
@@ -311,6 +345,61 @@ body {
 @media (forced-colors: active) {
   :focus-visible {
     outline: 2px solid CanvasText;
+  }
+}
+
+// Button (secondary) and .btn.primary, emitted once for every designer component.
+.btn {
+  @include shared.button;
+}
+
+// Popover menus (Camera, plan editor overflow, Projects row menu): shared surface and item look.
+// Position, item layout and per-menu extras stay in each component.
+.menu-surface {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-toast);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font: var(--weight-medium) var(--text-sm) / var(--leading-tight) var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+
+  &:hover {
+    background: var(--field-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+
+  small {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-regular);
+    color: var(--text-muted);
   }
 }
 

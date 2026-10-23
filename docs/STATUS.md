@@ -4,23 +4,12 @@ Handoff file for the main session. Updated after every phase change so work can 
 
 ## Waiting on the user
 
-- Nothing. The dock redesign build is next.
-
-## In progress: share by link + projects (`docs/plans/share-and-projects.md`, approved 2026-10-23)
-
-| # | Task | Owner | State |
-|---|------|-------|-------|
-| 1 | Plan + answers | architect | done |
-| 2 | UX spec `docs/ux/share-and-projects.md` (plan task 1, incl. landing Continue) | ux-expert | done (Q-A/Q-B answered) |
-| 3 | Contracts (plan task 3 + `state/project-summary.ts`) | frontend A | done (frozen; adds state/project-meta.ts) |
-| 4 | Visual specs + tokens (plan task 2, after 2) | designer | done (`docs/design/components/projects.md`) |
-| 5 | Build A state / B share + routes + landing / C UI (plan tasks 4-6) | frontend A/B/C | done: 807 tests, build without warnings |
-| 7 | Separate: full UI/UX review of the app (all areas) -> `docs/ux/ui-review.md`; the redesign is built AFTER share + projects | ux-expert | done; user chose dock + short tray, keep the 0.8 scale (answers in the review) |
-| 8 | Redesign plan `docs/plans/dock-redesign.md` | architect | done, approved (answers in plan); build starts after share + projects commit |
-| 6 | Tests + review (plan tasks 7-8), then ask user to deploy as v0.2.0 | tester, code-reviewer, ux-expert | done: all fixes in, 831 tests, axe 0, build + format clean; done; released as v0.2.0 |
+- Phone test of v0.3.0 (dock redesign) on the live site: orbit smoothness (≥ 30 fps with the full-screen canvas; fallback D1 if not), slider scrub, plan editor card, colour picker.
+- After the device check passes, delete `scene/frame-debug.ts` (see docs/plans/dock-redesign.md spike result) and do plan task 14 (docs: superseded notes, final decisions).
 
 ## Committed
 
+- `v0.3.0`: dock + tray redesign (full-screen 3D, dock, Camera menu, Colour without a mode, phone plan editor action bar + card, faster landing CTA). 884 tests, axe 0. Deployed.
 - `v0.2.0`: share by link, multiple projects, landing Continue. Deployed.
 - `v0.1.0`: wall/door/ceiling/skirting colouring, compact phone UI, 3D tap select on the Surfaces tab (674 tests, axe 0). Deployed.
 - `e1ed09b` Floor visualizer + custom room shape.

@@ -1,8 +1,8 @@
 :host {
   position: absolute;
-  // Sits above the sheet (it follows the sheet in DOM order so Tab from Reset reaches Undo).
-  right: calc(var(--panel-w, 0px) + var(--space-4));
-  bottom: calc(var(--stage-bottom, 0px) + var(--space-4));
+  // Above the dock and tray (it follows them in DOM order so Tab from Reset reaches Undo).
+  right: calc(var(--frame-right, 0px) + var(--space-4));
+  bottom: calc(var(--frame-bottom, 0px) + var(--space-3));
   left: var(--space-4);
   z-index: var(--z-toast);
   display: flex;

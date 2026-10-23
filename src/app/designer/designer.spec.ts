@@ -11,9 +11,9 @@ import { DesignState } from './state/design-state';
 import { Designer } from './designer';
 import { SceneCommands } from './scene/scene-commands';
 import { ColouringState } from './state/colouring-state';
-import { ColourAnnouncer } from './ui/colour-announcer';
 import { ColourConfirm } from './ui/colour-confirm';
 import { Toasts } from './ui/toasts';
+import { ViewFrame } from './ui/view-frame';
 import { Viewport } from './viewport/viewport';
 
 @Component({ selector: 'app-viewport', template: '' })
@@ -24,7 +24,13 @@ class StubEditor {}
 
 describe('Designer', () => {
   const status = signal('ready');
-  const scene = { setPreset: vi.fn(), zoom: vi.fn(), exportPng: vi.fn(), status };
+  const scene = {
+    setPreset: vi.fn(),
+    zoom: vi.fn(),
+    exportPng: vi.fn(),
+    setFrame: vi.fn(),
+    status,
+  };
 
   beforeEach(() => {
     localStorage.clear();
@@ -44,24 +50,132 @@ describe('Designer', () => {
     return { fixture, el: fixture.nativeElement as HTMLElement };
   }
 
-  it('renders a main landmark, one h1 and the five tabs', async () => {
+  const dockButton = (el: HTMLElement, name: string) =>
+    Array.from(el.querySelectorAll<HTMLElement>('app-dock .item')).find((b) =>
+      b.textContent?.includes(name),
+    )!;
+  const tray = (el: HTMLElement) => el.querySelector<HTMLElement>('#designer-tray')!;
+
+  it('renders a main landmark, one h1 and the five dock sections', async () => {
     const { el } = await setup();
     expect(el.querySelector('main')).not.toBeNull();
     expect(el.querySelectorAll('h1').length).toBe(1);
-    expect(Array.from(el.querySelectorAll('[role=tab]')).map((t) => t.textContent?.trim())).toEqual(
-      ['Room', 'Surfaces', 'Floor', 'Light', 'Estimate'],
-    );
+    const items = Array.from(el.querySelectorAll('app-dock [role=toolbar] .item'));
+    expect(items.map((i) => i.getAttribute('data-section'))).toEqual([
+      'room',
+      'floor',
+      'colour',
+      'light',
+      'estimate',
+    ]);
+    expect(el.querySelectorAll('[role=tab]').length).toBe(0);
   });
 
-  it('opens the sheet at Half on the Floor tab on the first visit only', async () => {
-    const first = await setup();
-    expect(first.el.className).toContain('stop-half');
-    expect(first.el.querySelector('[role=tab][aria-selected=true]')?.textContent).toContain(
-      'Floor',
-    );
+  it('starts with the tray closed, also on the first visit, and shows the look-around hint', async () => {
+    const { el } = await setup();
+    expect(tray(el).hidden).toBe(true);
+    expect(dockButton(el, 'Floor').getAttribute('aria-expanded')).toBe('false');
+    expect(TestBed.inject(Toasts).current()?.text).toContain('Drag to look around');
+  });
 
-    const again = await setup();
-    expect(again.el.className).toContain('stop-peek');
+  it('opens, switches and closes the tray from the dock, moving focus to the heading', async () => {
+    const { fixture, el } = await setup();
+    dockButton(el, 'Floor').click();
+    await fixture.whenStable();
+    expect(tray(el).hidden).toBe(false);
+    expect(tray(el).querySelector('h2')?.textContent).toContain('Floor');
+    expect(dockButton(el, 'Floor').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(tray(el).querySelector('h2'));
+
+    dockButton(el, 'Light').click();
+    await fixture.whenStable();
+    expect(tray(el).querySelector('h2')?.textContent).toContain('Light');
+    expect(dockButton(el, 'Floor').getAttribute('aria-expanded')).toBe('false');
+
+    const light = dockButton(el, 'Light');
+    light.focus();
+    light.click();
+    await fixture.whenStable();
+    expect(tray(el).hidden).toBe(true);
+    expect(document.activeElement).toBe(light);
+  });
+
+  it('the close button and Escape close the tray and focus its dock button', async () => {
+    const { fixture, el } = await setup();
+    const floor = dockButton(el, 'Floor');
+    floor.click();
+    await fixture.whenStable();
+    el.querySelector<HTMLElement>('.tray-close')!.click();
+    await fixture.whenStable();
+    expect(tray(el).hidden).toBe(true);
+    expect(document.activeElement).toBe(floor);
+
+    floor.click();
+    await fixture.whenStable();
+    tray(el).dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
+    await fixture.whenStable();
+    expect(tray(el).hidden).toBe(true);
+    expect(document.activeElement).toBe(floor);
+  });
+
+  it('Escape that another control already used leaves the tray open', async () => {
+    const { fixture, el } = await setup();
+    dockButton(el, 'Floor').click();
+    await fixture.whenStable();
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    event.preventDefault();
+    tray(el).dispatchEvent(event);
+    await fixture.whenStable();
+    expect(tray(el).hidden).toBe(false);
+  });
+
+  it('publishes the covered strips as CSS variables on the host', async () => {
+    const { fixture, el } = await setup();
+    TestBed.inject(ViewFrame).set({ top: 40, right: 0, bottom: 120, left: 0 });
+    await fixture.whenStable();
+    expect(el.style.getPropertyValue('--frame-bottom')).toBe('120px');
+    expect(el.style.getPropertyValue('--frame-top')).toBe('40px');
+  });
+
+  it('does not re-frame the scene for a small height change in the same section', async () => {
+    const { fixture } = await setup();
+    const frame = TestBed.inject(ViewFrame);
+    frame.set({ top: 40, right: 0, bottom: 300, left: 0 });
+    await fixture.whenStable();
+    scene.setFrame.mockClear();
+    frame.set({ top: 40, right: 0, bottom: 310, left: 0 });
+    await fixture.whenStable();
+    expect(scene.setFrame).not.toHaveBeenCalled();
+    frame.set({ top: 40, right: 0, bottom: 360, left: 0 });
+    await fixture.whenStable();
+    expect(scene.setFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('disconnects the frame ResizeObserver when destroyed', async () => {
+    const disconnect = vi.fn();
+    class FakeObserver {
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = disconnect;
+    }
+    vi.stubGlobal('ResizeObserver', FakeObserver);
+    try {
+      const { fixture } = await setup();
+      expect(disconnect).not.toHaveBeenCalled();
+      fixture.destroy();
+      expect(disconnect).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('sends the frame insets to the scene', async () => {
+    const { fixture } = await setup();
+    TestBed.inject(ViewFrame).set({ top: 40, right: 0, bottom: 120, left: 0 });
+    await fixture.whenStable();
+    expect(scene.setFrame).toHaveBeenLastCalledWith({ top: 40, right: 0, bottom: 120, left: 0 });
   });
 
   it('shows the loader while the scene loads', async () => {
@@ -70,11 +184,15 @@ describe('Designer', () => {
     expect(el.textContent).toContain('Preparing your room...');
   });
 
-  it('shows the fallback card and opens the Estimate tab without WebGL', async () => {
+  it('shows the fallback card and opens the Estimate section without WebGL', async () => {
     status.set('no-webgl');
-    const { el } = await setup();
+    const { el, fixture } = await setup();
     expect(el.textContent).toContain("3D view isn't available");
-    expect(el.querySelector('[role=tab][aria-selected=true]')?.textContent).toContain('Estimate');
+    expect(tray(el).hidden).toBe(false);
+    expect(tray(el).querySelector('h2')?.textContent).toContain('Estimate');
+    // Opened by the app: focus does not move.
+    await fixture.whenStable();
+    expect(document.activeElement).not.toBe(tray(el).querySelector('h2'));
   });
 
   it('shows the paused overlay when the context is lost', async () => {
@@ -83,13 +201,15 @@ describe('Designer', () => {
     expect(el.textContent).toContain('Display paused. Restoring...');
   });
 
-  it('keeps the toolbar before the canvas and the toasts after the sheet in DOM order', async () => {
+  it('keeps the toolbar before the canvas, the tray before the dock and the toasts after both', async () => {
     const { el } = await setup();
     const order = (a: string, b: string) =>
       el.querySelector(a)!.compareDocumentPosition(el.querySelector(b)!) &
       Node.DOCUMENT_POSITION_FOLLOWING;
     expect(order('app-view-toolbar', 'app-viewport')).toBeTruthy();
-    expect(order('app-controls-sheet', 'app-toast-host')).toBeTruthy();
+    expect(order('app-viewport', 'app-tray')).toBeTruthy();
+    expect(order('app-tray', 'app-dock')).toBeTruthy();
+    expect(order('app-dock', 'app-toast-host')).toBeTruthy();
   });
 
   describe('shape editor route', () => {
@@ -120,12 +240,16 @@ describe('Designer', () => {
       const el = harness.fixture.nativeElement as HTMLElement;
       harness.fixture.detectChanges();
       expect(el.querySelector('main')!.hasAttribute('inert')).toBe(false);
+      // The Room section holds Edit shape; the tray state is kept while the editor is open.
+      el.querySelector<HTMLElement>('app-dock [data-section=room]')!.click();
+      harness.fixture.detectChanges();
+      await harness.fixture.whenStable();
 
       await harness.navigateByUrl('/designer/plan');
       harness.fixture.detectChanges();
       expect(el.querySelector('app-stub-editor')).not.toBeNull();
       expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
-      expect(el.querySelector('app-controls-sheet')!.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('.chrome')!.hasAttribute('inert')).toBe(true);
       expect(el.querySelector('app-toast-host')!.hasAttribute('inert')).toBe(false);
 
       await harness.navigateByUrl('/designer');
@@ -144,83 +268,33 @@ describe('Designer', () => {
     });
   });
 
-  describe('Colour mode', () => {
-    const selectedTab = (el: HTMLElement) =>
-      el.querySelector('[role=tab][aria-selected=true]')?.textContent?.trim();
-
-    it('opens the Surfaces tab at Half when Colour mode is turned on', async () => {
-      (await setup()).fixture.destroy(); // the first visit opens Half by itself
+  describe('Colour section', () => {
+    it('open Colour selects All walls and turns 3D picking on; closing clears it', async () => {
       const { fixture, el } = await setup();
       const colouring = TestBed.inject(ColouringState);
-      expect(el.className).toContain('stop-peek');
-      colouring.setActive(true);
+      expect(colouring.picking()).toBe(false);
+      dockButton(el, 'Colour').click();
       await fixture.whenStable();
-      expect(selectedTab(el)).toBe('Surfaces');
-      expect(el.className).toContain('stop-half');
-      expect(el.textContent).toContain('Tap a wall, door, skirting or the ceiling.');
-    });
-
-    it('a tap selection opens Surfaces at Half and is announced', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      colouring.select({ kind: 'wall', id: 's2' }, 'tap');
-      await fixture.whenStable();
-      expect(selectedTab(el)).toBe('Surfaces');
-      expect(el.className).toContain('stop-half');
-      expect(TestBed.inject(ColourAnnouncer).message()).toBe('Wall 3 selected.');
-      expect(el.querySelector('[role=status][aria-live=polite]')?.textContent).toContain(
-        'Wall 3 selected.',
-      );
-      expect(el.querySelector('input:checked')?.closest('label')?.textContent).toContain('Wall 3');
-    });
-
-    it('leaving the Surfaces tab clears the selection', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      colouring.select({ kind: 'ceiling' }, 'tap');
-      await fixture.whenStable();
-      expect(colouring.selected()).toEqual({ kind: 'ceiling' });
-      Array.from(el.querySelectorAll<HTMLElement>('[role=tab]'))
-        .find((t) => t.textContent?.includes('Floor'))!
-        .click();
-      await fixture.whenStable();
-      expect(colouring.selected()).toBeNull();
-    });
-
-    it('switching from Surfaces to Room clears the selection', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      const tab = (name: string) =>
-        Array.from(el.querySelectorAll<HTMLElement>('[role=tab]')).find((t) =>
-          t.textContent?.includes(name),
-        )!;
-      tab('Surfaces').click();
-      await fixture.whenStable();
-      expect(selectedTab(el)).toBe('Surfaces');
-      expect(colouring.selected()).toEqual({ kind: 'walls' });
-      tab('Room').click();
-      await fixture.whenStable();
-      expect(selectedTab(el)).toBe('Room');
-      expect(colouring.selected()).toBeNull();
-    });
-
-    it('turns 3D picking on while the Surfaces tab is open, even with Colour mode off', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      const tab = (name: string) =>
-        Array.from(el.querySelectorAll<HTMLElement>('[role=tab]')).find((t) =>
-          t.textContent?.includes(name),
-        )!;
-      tab('Surfaces').click();
-      await fixture.whenStable();
-      expect(colouring.active()).toBe(false);
+      expect(colouring.colourOpen()).toBe(true);
       expect(colouring.picking()).toBe(true);
-      colouring.select({ kind: 'door', id: 'o1' }, 'tap');
-      await fixture.whenStable();
-      expect(colouring.selected()).toEqual({ kind: 'door', id: 'o1' });
-      tab('Floor').click();
+      expect(colouring.selected()).toEqual({ kind: 'walls' });
+      dockButton(el, 'Floor').click();
       await fixture.whenStable();
       expect(colouring.picking()).toBe(false);
+      expect(colouring.selected()).toBeNull();
+    });
+
+    it('Escape closes Colour and clears the selection', async () => {
+      const { fixture, el } = await setup();
+      const colouring = TestBed.inject(ColouringState);
+      dockButton(el, 'Colour').click();
+      await fixture.whenStable();
+      tray(el).dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
+      await fixture.whenStable();
+      expect(colouring.colourOpen()).toBe(false);
+      expect(colouring.selected()).toBeNull();
     });
 
     it('the toast host is inert only while the confirm dialog is open', async () => {
@@ -230,34 +304,6 @@ describe('Designer', () => {
       TestBed.inject(ColourConfirm).ask({ body: 'b', onConfirm: () => undefined });
       await fixture.whenStable();
       expect(host.hasAttribute('inert')).toBe(true);
-    });
-
-    it('Escape in the stage turns Colour mode off', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      colouring.setActive(true);
-      await fixture.whenStable();
-      el.querySelector('main')!.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
-      );
-      await fixture.whenStable();
-      expect(colouring.active()).toBe(false);
-      expect(TestBed.inject(ColourAnnouncer).message()).toBe('Colour mode off.');
-    });
-
-    it('Escape that another control already used does not turn the mode off', async () => {
-      const { fixture, el } = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      colouring.setActive(true);
-      await fixture.whenStable();
-      const event = new KeyboardEvent('keydown', {
-        key: 'Escape',
-        bubbles: true,
-        cancelable: true,
-      });
-      event.preventDefault();
-      el.querySelector('main')!.dispatchEvent(event);
-      expect(colouring.active()).toBe(true);
     });
 
     it('shows the confirm alertdialog and makes the page inert until it is answered', async () => {
@@ -271,7 +317,7 @@ describe('Designer', () => {
       expect(dialog.querySelector('h2')?.textContent).toBe('Change all walls?');
       expect(dialog.textContent).toContain('Wall 2 has its own colour.');
       expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
-      expect(el.querySelector('app-controls-sheet')!.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('.chrome')!.hasAttribute('inert')).toBe(true);
       expect(document.activeElement?.textContent).toContain('Cancel');
 
       dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
@@ -294,12 +340,12 @@ describe('Designer', () => {
       expect(el.querySelector('[role=alertdialog]')).toBeNull();
     });
 
-    it('Colour mode is off again on the next visit', async () => {
+    it('Colour is closed again on the next visit', async () => {
       const first = await setup();
-      const colouring = TestBed.inject(ColouringState);
-      colouring.setActive(true);
+      dockButton(first.el, 'Colour').click();
+      await first.fixture.whenStable();
       first.fixture.destroy();
-      expect(colouring.active()).toBe(false);
+      expect(TestBed.inject(ColouringState).colourOpen()).toBe(false);
     });
   });
 
@@ -378,7 +424,7 @@ describe('Designer', () => {
       await fixture.whenStable();
       expect(el.querySelector('app-projects-dialog [role=dialog]')).not.toBeNull();
       expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
-      expect(el.querySelector('app-controls-sheet')!.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('.chrome')!.hasAttribute('inert')).toBe(true);
       expect(el.querySelector('app-toast-host')!.hasAttribute('inert')).toBe(true);
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

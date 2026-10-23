@@ -100,19 +100,19 @@
   @if (menu(); as open) {
     <div
       id="projects-menu"
-      class="menu"
+      class="menu menu-surface"
       role="menu"
       [attr.aria-label]="'Actions for ' + menuName()"
       [style.right.px]="open.right"
       [style.top.px]="open.top"
       (keydown)="onMenuKey($event)"
     >
-      <button type="button" class="item" role="menuitem" (click)="startRename(open.id)">
+      <button type="button" class="menu-item item" role="menuitem" (click)="startRename(open.id)">
         Rename
       </button>
       <button
         type="button"
-        class="item"
+        class="menu-item item"
         role="menuitem"
         [attr.aria-disabled]="atLimit()"
         (click)="duplicate(open.id)"
@@ -122,7 +122,12 @@
           <small>Limit reached</small>
         }
       </button>
-      <button type="button" class="item danger" role="menuitem" (click)="remove(open.id)">
+      @if (open.id === currentId()) {
+        <button type="button" class="menu-item item" role="menuitem" (click)="reset()">
+          Reset to defaults
+        </button>
+      }
+      <button type="button" class="menu-item item danger" role="menuitem" (click)="remove(open.id)">
         <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
           <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" />
         </svg>

@@ -35,7 +35,7 @@ const items = (simple = false) =>
 
 @Component({
   imports: [SurfaceList],
-  template: `<app-surface-list [items]="items" [noDoors]="false" />`,
+  template: `<app-surface-list [items]="items" />`,
 })
 class Host {
   items = items();
@@ -46,7 +46,10 @@ function setup() {
   const fixture = TestBed.createComponent(Host);
   fixture.detectChanges();
   const el = fixture.nativeElement as HTMLElement;
-  return { fixture, el, colouring: TestBed.inject(ColouringState) };
+  const colouring = TestBed.inject(ColouringState);
+  colouring.select({ kind: 'walls' }, 'list');
+  fixture.detectChanges();
+  return { fixture, el, colouring };
 }
 
 describe('surfaceItems', () => {
@@ -72,50 +75,48 @@ describe('surfaceItems', () => {
 });
 
 describe('SurfaceList', () => {
-  it('has one fieldset per section with radio chips', () => {
+  const names = (el: HTMLElement, group: string) =>
+    Array.from(el.querySelectorAll<HTMLInputElement>(`[aria-label="${group}"] input`)).map(
+      (i) => i.getAttribute('aria-label') ?? i.closest('label')!.textContent!.trim(),
+    );
+
+  it('has a What row and a Which row, each its own radio group', () => {
     const { el } = setup();
-    expect(Array.from(el.querySelectorAll('legend')).map((l) => l.textContent)).toEqual([
-      'Walls',
-      'Doors',
-      'Other',
-    ]);
-    expect(el.querySelectorAll('input[type=radio]').length).toBe(9);
-    const names = new Set(
+    expect(names(el, 'What to colour')).toEqual(['Walls', 'Doors', 'Ceiling', 'Skirting']);
+    expect(names(el, 'Which one')).toEqual(['All walls', 'Wall 1', 'Wall 2', 'Wall 3']);
+    const radioNames = new Set(
       Array.from(el.querySelectorAll<HTMLInputElement>('input')).map((i) => i.name),
     );
-    expect(names.size).toBe(3);
+    expect(radioNames.size).toBe(2);
   });
 
-  it('describes each chip by its colour name', () => {
-    const { el } = setup();
-    const wall2 = Array.from(el.querySelectorAll('label.item')).find((l) =>
-      l.textContent!.includes('Wall 2'),
-    )!;
-    const input = wall2.querySelector('input')!;
-    const description = el.querySelector(`#${input.getAttribute('aria-describedby')}`);
-    expect(description?.textContent).toBe('Navy');
-  });
-
-  it('selects through ColouringState and shows the check on the selected chip only', () => {
+  it('selects through ColouringState; a list selection does not count as a 3D tap', () => {
     const { fixture, el, colouring } = setup();
-    const chip = (label: string) =>
-      Array.from(el.querySelectorAll('label.item')).find((l) => l.textContent!.includes(label))!;
-    chip('Door 2').querySelector('input')!.click();
+    el.querySelector<HTMLInputElement>('[aria-label="Wall 2"]')!.click();
     fixture.detectChanges();
-    expect(colouring.selected()).toEqual({ kind: 'door', id: 'o3' });
-    expect(el.querySelectorAll('.check').length).toBe(1);
-    expect(chip('Door 2').querySelector('.check')).not.toBeNull();
-    expect(chip('Door 2').querySelector<HTMLInputElement>('input')!.checked).toBe(true);
-    // A list selection does not count as a 3D tap.
+    expect(colouring.selected()).toEqual({ kind: 'wall', id: 'w2' });
     expect(colouring.lastTap()).toBe(0);
+    expect(el.querySelectorAll('[aria-label="Which one"] input:checked').length).toBe(1);
   });
 
-  it('follows a selection made elsewhere (a 3D tap)', () => {
+  it('switches the Which row to doors and shows the check on the checked What chip only', () => {
     const { fixture, el, colouring } = setup();
-    colouring.select({ kind: 'wall', id: 'w3' }, 'tap');
+    colouring.select({ kind: 'door', id: 'o3' }, 'tap');
     fixture.detectChanges();
-    const checked = Array.from(el.querySelectorAll<HTMLInputElement>('input:checked'));
-    expect(checked.length).toBe(1);
-    expect(checked[0].closest('label')!.textContent).toContain('Wall 3');
+    expect(names(el, 'Which one')).toEqual(['All doors', 'Door 1', 'Door 2']);
+    expect(el.querySelectorAll('.check').length).toBe(1);
+    expect(
+      el
+        .querySelector<HTMLInputElement>('[aria-label="Which one"] input:checked')
+        ?.getAttribute('aria-label'),
+    ).toBe('Door 2');
+  });
+
+  it('keeps the Which row for ceiling with a note and no chips', () => {
+    const { fixture, el, colouring } = setup();
+    colouring.select({ kind: 'ceiling' }, 'list');
+    fixture.detectChanges();
+    expect(names(el, 'Which one')).toEqual([]);
+    expect(el.querySelector('.note')?.textContent).toBe('Whole ceiling.');
   });
 });

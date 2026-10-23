@@ -9,13 +9,13 @@ import {
   Injector,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
 import { IncomingShare } from './share/incoming-share';
 import { ShareLink } from './share/share-link';
 import { ColouringState } from './state/colouring-state';
-import { DesignState } from './state/design-state';
 import { Projects } from './state/projects';
 import { ProjectIndex } from './state/project-index';
 import { SceneCommands } from './scene/scene-commands';
@@ -25,13 +25,18 @@ import { ColourConfirmDialog } from './ui/colour-confirm-dialog';
 import { ProjectsDialog } from './ui/projects-dialog';
 import { ShareFallbackDialog } from './ui/share-fallback-dialog';
 import { describeShared, SharedLinkDialog } from './ui/shared-link-dialog';
-import { ControlsSheet, SheetStop, TabId } from './ui/controls-sheet';
+import { Dock } from './ui/dock';
+import { isMinorReframe, measureFrame } from './ui/frame-measure';
+import { NO_INSETS } from './scene/frame-insets';
+import { SectionId } from './ui/section-id';
+import { Tray } from './ui/tray';
+import { ViewFrame } from './ui/view-frame';
 import { consumeFirstVisit } from './ui/first-visit';
 import { EditorLoader } from './ui/editor-loader';
 import { ImageDialog } from './ui/image-dialog';
 import { ImageExport } from './ui/image-export';
 import { ToastHost } from './ui/toast-host';
-import { findItem, surfaceItems } from './ui/surface-model';
+import { ColourHint } from './ui/colour-hint';
 import { Toasts } from './ui/toasts';
 import { ViewToolbar } from './ui/view-toolbar';
 import { ViewportStatus } from './ui/viewport-status';
@@ -46,9 +51,11 @@ const MOUSE_HINT = 'Drag to look around. Scroll to zoom. Right-drag to move.';
   imports: [
     Viewport,
     ViewportStatus,
+    ColourHint,
     ViewToolbar,
     ToastHost,
-    ControlsSheet,
+    Dock,
+    Tray,
     ImageDialog,
     RouterOutlet,
     EditorLoader,
@@ -60,16 +67,15 @@ const MOUSE_HINT = 'Drag to look around. Scroll to zoom. Right-drag to move.';
   templateUrl: './designer.html',
   styleUrl: './designer.scss',
   host: {
-    '[class]': '"stop-" + stop()',
+    '[style]': 'frame.cssVars()',
     '(window:hashchange)': 'incoming.read()',
   },
 })
 export class Designer {
-  private readonly scene = inject(SceneCommands);
+  protected readonly scene = inject(SceneCommands);
   private readonly toasts = inject(Toasts);
   protected readonly exporter = inject(ImageExport);
   private readonly colouring = inject(ColouringState);
-  private readonly design = inject(DesignState);
   protected readonly confirm = inject(ColourConfirm);
   protected readonly announcer = inject(ColourAnnouncer);
   protected readonly incoming = inject(IncomingShare);
@@ -79,8 +85,12 @@ export class Designer {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly stop = signal<SheetStop>('peek');
-  protected readonly tab = signal<TabId>('room');
+  protected readonly frame = inject(ViewFrame);
+  private readonly dock = viewChild(Dock);
+  private readonly tray = viewChild(Tray);
+  private readonly chrome = viewChild<ElementRef<HTMLElement>>('chrome');
+  /** The open dock section, or null (closed on every visit). */
+  protected readonly section = signal<SectionId | null>(null);
   /** The shape editor (child route) is open: the designer underneath is inert. */
   protected readonly editorOpen = signal(false);
   protected readonly projectsOpen = signal(false);
@@ -110,23 +120,26 @@ export class Designer {
   protected readonly covered = computed(() => this.editorOpen() || this.dialogOpen());
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
 
   private hintToast: number | null = null;
+  /** The insets and section the scene was last framed to. */
+  private sceneInsets = NO_INSETS;
+  private sceneSection: SectionId | null = null;
 
   constructor() {
     const title = inject(Title);
     const previousTitle = title.getTitle();
     title.setTitle('Floor designer - Parket');
-    inject(DestroyRef).onDestroy(() => {
+    this.destroyRef.onDestroy(() => {
       title.setTitle(previousTitle || 'Parket');
       this.toasts.dismiss();
       this.exporter.closeFallback();
       this.shareLink.closeFallback();
-      // Colour mode is off on every visit.
+      // Colour is closed on every visit.
       this.confirm.cancel();
-      this.colouring.setActive(false);
-      this.colouring.setSurfacesOpen(false);
+      this.colouring.setColourOpen(false);
       this.announcer.say('');
     });
 
@@ -134,8 +147,6 @@ export class Designer {
     void this.incoming.read();
 
     if (consumeFirstVisit()) {
-      this.stop.set('half');
-      this.tab.set('floor');
       const touch = globalThis.matchMedia?.('(pointer: coarse)').matches ?? false;
       this.hintToast = this.toasts.show(touch ? TOUCH_HINT : MOUSE_HINT, {
         durationMs: HINT_MS,
@@ -143,64 +154,53 @@ export class Designer {
       });
     }
 
-    // Colour mode on: show the surfaces to pick from.
+    // The Colour section is the colouring mode: open means taps in 3D select a surface.
     effect(() => {
-      if (this.colouring.active()) {
-        untracked(() => this.showSurfaces());
-      }
+      const open = this.section() === 'colour';
+      untracked(() => this.colouring.setColourOpen(open));
     });
 
-    // A tap on a surface in 3D opens its palette (focus stays on the canvas).
-    let seenTap = untracked(() => this.colouring.lastTap());
-    effect(() => {
-      const taps = this.colouring.lastTap();
-      if (taps !== seenTap) {
-        seenTap = taps;
-        untracked(() => {
-          this.showSurfaces();
-          this.announceSelection();
-        });
-      }
-    });
-
-    // The selection only lives while the Surfaces tab is open, and while it is open a tap in 3D
-    // selects the tapped wall or door even with Colour mode off.
-    effect(() => {
-      const open = this.tab() === 'surfaces';
-      untracked(() => {
-        this.colouring.setSurfacesOpen(open);
-        if (!open) {
-          this.colouring.clear();
-        }
-      });
-    });
-
-    // A tap on empty space clears the selection.
-    let hadSelection = false;
-    effect(() => {
-      const has = this.colouring.hasSelection();
-      if (
-        hadSelection &&
-        !has &&
-        untracked(() => this.colouring.active() && this.tab() === 'surfaces')
-      ) {
-        this.announcer.say('Selection cleared.');
-      }
-      hadSelection = has;
-    });
-
-    // Without a 3D view the calculator is the useful part: open the Estimate tab.
+    // Without a 3D view the calculator is the useful part: open Estimate (focus does not move).
     effect(() => {
       const status = this.scene.status();
       if (status === 'no-webgl' || status === 'error') {
-        untracked(() => {
-          this.tab.set('estimate');
-          if (this.stop() === 'peek') {
-            this.stop.set('half');
-          }
-        });
+        untracked(() => this.section.set('estimate'));
       }
     });
+
+    // The covered strips frame the room: the scene eases to them.
+    // A small height change inside the same open section (More, an error line) does not re-frame.
+    effect(() => {
+      const insets = this.frame.insets();
+      const section = this.section();
+      untracked(() => {
+        const sectionChanged = section !== this.sceneSection;
+        if (isMinorReframe(this.sceneInsets, insets, sectionChanged)) return;
+        this.sceneInsets = insets;
+        this.sceneSection = section;
+        this.scene.setFrame(insets);
+      });
+    });
+
+    afterNextRender(() => this.observeFrame());
+  }
+
+  /** One ResizeObserver on the host, top bar and chrome (tray + dock / rail) publishes the insets. */
+  private observeFrame(): void {
+    const host = this.host.nativeElement;
+    const topBar = host.querySelector<HTMLElement>('app-view-toolbar');
+    const chrome = this.chrome()?.nativeElement ?? null;
+    const measure = (): void => {
+      const vertical = this.dock()?.isRail() ?? false;
+      this.frame.set(measureFrame({ host, topBar, chrome }, vertical));
+    };
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(host);
+    if (topBar) observer.observe(topBar);
+    if (chrome) observer.observe(chrome);
+    this.destroyRef.onDestroy(() => observer.disconnect());
   }
 
   /** "Design your floor" on the landing page opens `?new=1`: start a project and drop the query. */
@@ -234,33 +234,32 @@ export class Designer {
     return this.index.projects().find((p) => p.id === id)?.name ?? '';
   }
 
-  /** Opens the sheet on the Surfaces tab, at Half if it was peeking. */
-  private showSurfaces(): void {
-    this.tab.set('surfaces');
-    if (this.stop() === 'peek') {
-      this.stop.set('half');
+  /** A dock button: open, switch (focus moves to the new heading) or close its own tray. */
+  protected onDockToggle(id: SectionId): void {
+    if (this.section() === id) {
+      this.section.set(null);
+      return;
+    }
+    this.section.set(id);
+    afterNextRender(() => this.tray()?.focusHeading(), { injector: this.injector });
+  }
+
+  /** The tray's close button: focus goes to the section's dock button. */
+  protected closeSection(): void {
+    const id = this.section();
+    this.section.set(null);
+    if (id) {
+      this.dock()?.focusItem(id);
     }
   }
 
-  private announceSelection(): void {
-    const shape = this.design.roomShape();
-    const items = surfaceItems(shape, this.design.mode() === 'simple', {
-      paint: this.design.paint(),
-      wallColor: this.design.wallColor(),
-      doorColor: this.design.doorColor(),
-    });
-    const item = findItem(items, this.colouring.selected());
-    if (item) {
-      this.announcer.say(`${item.label.replace(' (window)', '')} selected.`);
+  /** Escape closes the tray (a popover or dialog took the key first; a held slider ignores it). */
+  protected onEscape(event: Event): void {
+    if (event.defaultPrevented || !this.section() || this.tray()?.isScrubbing()) {
+      return;
     }
-  }
-
-  /** Escape in the stage turns Colour mode off (a popover or dialog took the key first). */
-  protected onStageEscape(event: Event): void {
-    if (!event.defaultPrevented && this.colouring.active()) {
-      this.colouring.setActive(false);
-      this.announcer.say('Colour mode off.');
-    }
+    event.preventDefault();
+    this.closeSection();
   }
 
   /** Focus goes back to Edit shape (or the Custom option) once the designer is live again. */

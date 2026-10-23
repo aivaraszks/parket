@@ -8,6 +8,8 @@
 }
 
 .bar {
+  position: relative;
+  z-index: 3;
   grid-area: bar;
   display: flex;
   align-items: center;
@@ -43,10 +45,6 @@
     text-align: left;
     padding-left: var(--space-2);
   }
-}
-
-.btn {
-  @include shared.button;
 }
 
 // Done is after the title in the DOM (initial focus), but shows first.
@@ -181,4 +179,46 @@ input:focus-visible + .track {
 .switch-label {
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
+}
+
+// Phone: the overflow menu replaces the Snap switch; Zoom is for fine pointers only.
+.more {
+  display: none;
+}
+
+.dot {
+  fill: currentColor;
+  stroke: none;
+}
+
+@media (max-width: 559px), (min-height: 500px) and (max-width: 899px) {
+  .bar .switch {
+    display: none;
+  }
+
+  .more {
+    display: inline-flex;
+  }
+}
+
+@media (pointer: coarse) {
+  .zoom {
+    display: none;
+  }
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: var(--space-2);
+  min-width: calc(14rem * var(--ui-scale));
+  max-width: calc(100vw - 2 * var(--space-3));
+}
+
+.item {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
 }

@@ -21,6 +21,7 @@ import {
   Vec2,
 } from '../plan/plan-model';
 import { DesignState } from '../state/design-state';
+import { Toasts } from '../ui/toasts';
 import { errorMessage } from './error-copy';
 import { hintSeen, markHintSeen } from './hint-seen';
 import { CornerInfo, cornerLabel, kindName, openingLabel, planInfo, WallInfo } from './plan-info';
@@ -49,6 +50,7 @@ interface CommitOptions {
 const HISTORY_LIMIT = 50;
 const CHIP_MS = 4000;
 const COALESCE_MS = 1000;
+const UNDO_TOAST_MS = 8000;
 
 const capitalise = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
 const m2 = (n: number): string => n.toFixed(2);
@@ -63,6 +65,8 @@ const m2 = (n: number): string => n.toFixed(2);
 @Injectable()
 export class EditorSession {
   private readonly state = inject(DesignState);
+  private readonly toasts = inject(Toasts);
+  private toastId: number | null = null;
   private chipTimer: ReturnType<typeof setTimeout> | undefined;
   private base: Plan | null = null;
   private lastCoalesce: { key: string; at: number } | null = null;
@@ -71,8 +75,8 @@ export class EditorSession {
   readonly info = computed(() => planInfo(this.plan()));
   readonly selection = signal<Selection | null>(null);
   readonly snap = signal(true);
-  /** Phone: whether the bottom panel is open to its taller stop. */
-  readonly panelExpanded = signal(false);
+  /** Phone: what the card above the action bar shows (null: closed). */
+  readonly card = signal<'details' | 'walls' | 'corners' | null>(null);
   /** Persistent live-region text. */
   readonly message = signal('');
   /** The refusal reason shown in the chip (4 s). */
@@ -83,7 +87,9 @@ export class EditorSession {
   /** Set when the editor closes; late callbacks (toast Undo) must not touch the state then. */
   readonly closed = signal(false);
   readonly hintVisible = signal(!hintSeen());
-  readonly focusRequest = signal<{ target: 'plan' | 'first-field'; n: number } | null>(null);
+  readonly focusRequest = signal<{ target: 'plan' | 'first-field' | 'card'; n: number } | null>(
+    null,
+  );
 
   private readonly undoStack = signal<Entry[]>([]);
   private readonly redoStack = signal<Entry[]>([]);
@@ -116,6 +122,8 @@ export class EditorSession {
     inject(DestroyRef).onDestroy(() => {
       this.closed.set(true);
       clearTimeout(this.chipTimer);
+      // The Start over toast belongs to this editor: it goes when the editor closes.
+      if (this.toastId !== null) this.toasts.dismiss(this.toastId);
     });
   }
 
@@ -146,7 +154,7 @@ export class EditorSession {
     this.message.set(this.message() === text ? `${text} ` : text);
   }
 
-  requestFocus(target: 'plan' | 'first-field'): void {
+  requestFocus(target: 'plan' | 'first-field' | 'card'): void {
     this.focusRequest.set({ target, n: (this.focusRequest()?.n ?? 0) + 1 });
   }
 
@@ -381,5 +389,16 @@ export class EditorSession {
   startOver(): void {
     this.selection.set(null);
     this.record(this.plan(), this.state.startingPlan(), 'started over');
+  }
+
+  /** Start over, with a toast that offers Undo while that is still safe. */
+  startOverWithUndo(): void {
+    this.startOver();
+    this.toastId = this.toasts.show('Started over.', {
+      durationMs: UNDO_TOAST_MS,
+      action: { label: 'Undo', run: () => this.undo() },
+      // Another edit, or closing the editor, makes this Undo unsafe: drop the offer.
+      keepWhile: () => !this.closed() && this.lastLabel() === 'started over',
+    });
   }
 }

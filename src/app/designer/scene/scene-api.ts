@@ -2,6 +2,7 @@ import { SurfaceHit, SurfacePaint, SurfaceRef } from '../plan/paint';
 import { RoomShape } from '../plan/room-shape';
 import { Finish, PatternId, Sun } from '../state/design-defaults';
 import { Species } from '../state/species';
+import type { FrameInsets } from './frame-insets';
 import { SceneController, SceneStatus } from './scene-commands';
 
 export interface FloorLayout {
@@ -41,5 +42,7 @@ export interface FloorSceneApi extends SceneController {
   setFinish(finish: Finish): void;
   setSun(sun: Sun): void;
   setFloor(layout: FloorLayout): void;
+  /** Frame the room in the canvas minus the strips covered by UI (CSS px); zeros clear the frame. */
+  setFrame(insets: FrameInsets): void;
   dispose(): void;
 }

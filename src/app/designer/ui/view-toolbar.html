@@ -30,131 +30,7 @@
   </button>
   <span class="spacer"></span>
 
-  <div class="group inline" role="group" aria-label="Views">
-    @for (preset of presets; track preset.id) {
-      <button
-        type="button"
-        class="btn chip"
-        [title]="unavailable() ? 'Needs 3D view' : preset.sub"
-        [attr.aria-disabled]="unavailable()"
-        (click)="setPreset(preset.id)"
-      >
-        {{ preset.label }}
-      </button>
-    }
-    <button
-      type="button"
-      class="btn chip icon-only"
-      aria-label="Zoom out"
-      [attr.aria-disabled]="unavailable()"
-      (click)="zoom(-1)"
-    >
-      <span aria-hidden="true">−</span>
-    </button>
-    <button
-      type="button"
-      class="btn chip icon-only"
-      aria-label="Zoom in"
-      [attr.aria-disabled]="unavailable()"
-      (click)="zoom(1)"
-    >
-      <span aria-hidden="true">+</span>
-    </button>
-  </div>
-
-  <button
-    type="button"
-    class="btn chip colour-toggle"
-    data-colour-toggle
-    [attr.aria-pressed]="colouring.active()"
-    [attr.aria-disabled]="unavailable()"
-    [title]="colourTitle()"
-    (click)="toggleColour()"
-  >
-    <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
-      <path
-        d="M8 1.8C6 4.6 3.8 6.8 3.8 9.6a4.2 4.2 0 008.4 0C12.2 6.8 10 4.6 8 1.8z"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.6"
-        stroke-linejoin="round"
-      />
-    </svg>
-    @if (colouring.active()) {
-      <svg class="badge" viewBox="0 0 16 16" aria-hidden="true">
-        <path
-          d="M3 8.5l3.2 3.2L13 4.8"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.6"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    }
-    <span class="colour-label">Colour</span>
-  </button>
-
-  <div class="menu views-menu">
-    <button
-      type="button"
-      class="btn chip"
-      [class.colour-on]="colouring.active()"
-      [attr.aria-label]="colouring.active() ? 'Views, Colour mode on' : null"
-      data-trigger="views"
-      aria-controls="views-popover"
-      [attr.aria-expanded]="open() === 'views'"
-      [attr.aria-disabled]="unavailable()"
-      [title]="viewsTitle()"
-      (click)="unavailable() ? null : toggle('views')"
-    >
-      Views
-    </button>
-    @if (open() === 'views') {
-      <div class="popover" id="views-popover" role="group" aria-label="Views">
-        @for (preset of presets; track preset.id) {
-          <button type="button" class="item" (click)="setPreset(preset.id)">
-            <span>{{ preset.label }}</span>
-            <small>{{ preset.sub }}</small>
-          </button>
-        }
-        <button type="button" class="item" (click)="zoom(1)"><span>Zoom in</span></button>
-        <button type="button" class="item" (click)="zoom(-1)"><span>Zoom out</span></button>
-        <button
-          type="button"
-          class="item colour-item"
-          data-colour-item
-          [attr.aria-pressed]="colouring.active()"
-          (click)="toggleColourFromMenu()"
-        >
-          <span>Colour mode</span>
-          <small>Tap surfaces to colour them</small>
-        </button>
-      </div>
-    }
-  </div>
-
-  <div class="menu">
-    <button
-      type="button"
-      class="btn chip icon-only"
-      data-trigger="help"
-      aria-label="How to look around"
-      aria-controls="help-popover"
-      [attr.aria-expanded]="open() === 'help'"
-      (click)="toggle('help')"
-    >
-      <span aria-hidden="true">?</span>
-    </button>
-    @if (open() === 'help') {
-      <div class="popover help" id="help-popover" role="group" aria-label="How to look around">
-        <p>Touch: Drag to look around. Pinch to zoom. Two fingers to move.</p>
-        <p>Mouse: Drag to look around. Scroll to zoom. Right-drag to move.</p>
-        <p>Keyboard: Arrow keys to look around. + and - to zoom. 0 to reset the view.</p>
-        <button type="button" class="item" (click)="closePopover()">Close</button>
-      </div>
-    }
-  </div>
+  <app-camera-menu />
 
   <button
     type="button"
@@ -180,10 +56,12 @@
 
   <button
     type="button"
-    class="btn chip primary"
+    class="btn chip primary save-chip"
+    data-trigger="save"
+    [attr.aria-label]="exporter.busy() ? 'Saving image...' : 'Save image'"
     [attr.aria-disabled]="unavailable() || exporter.busy()"
     [attr.aria-busy]="exporter.busy()"
-    [title]="saveTitle()"
+    [attr.title]="saveTitle()"
     (click)="save()"
   >
     @if (exporter.busy()) {
@@ -200,6 +78,6 @@
         />
       </svg>
     }
-    <span class="save-label">{{ exporter.busy() ? 'Saving...' : 'Save image' }}</span>
+    <span class="save-label">{{ exporter.busy() ? 'Saving image...' : 'Save image' }}</span>
   </button>
 </nav>

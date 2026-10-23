@@ -4,20 +4,60 @@ fieldset {
   @include shared.choice-group;
 }
 
-@include shared.swatch;
-
-.options,
+// One row that scrolls sideways; the radio group stays native (arrow keys move and select).
 fieldset .options {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(calc(5.5rem * var(--ui-scale)), 1fr));
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  margin-inline: calc(-1 * var(--chip-fade-w));
+  padding: var(--space-2) var(--chip-fade-w);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--chip-fade-w);
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--chip-fade-w),
+    #000 calc(100% - var(--chip-fade-w)),
+    transparent
+  );
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-.card {
-  width: 100%;
+.choice {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: var(--wood-chip-w);
+  scroll-snap-align: start;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
 }
 
-// Faint diagonal of the grain colour over the plank colour.
 .chip {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--strip-swatch);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  // Faint diagonal of the grain colour over the plank colour.
   background:
     linear-gradient(
       135deg,
@@ -28,8 +68,50 @@ fieldset .options {
     var(--swatch);
 }
 
+.choice:hover .chip {
+  outline: 2px solid var(--control-border);
+  outline-offset: 2px;
+}
+
+input:checked + .chip {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input:focus-visible + .chip {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--focus-ring-halo);
+}
+
+.check {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: calc(1rem * var(--ui-scale));
+  height: calc(1rem * var(--ui-scale));
+  color: var(--check, var(--text-on-accent));
+}
+
 .name {
-  font-size: var(--text-sm);
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--text-xs);
+  line-height: 1.2;
   color: var(--text-primary);
   text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+input:checked ~ .name {
+  font-weight: var(--weight-semibold);
+}
+
+@media (forced-colors: active) {
+  input:checked + .chip {
+    outline-color: Highlight;
+  }
 }

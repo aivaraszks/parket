@@ -484,13 +484,6 @@ describe('PlanEditor', () => {
       expect(fieldText('length')).toContain('Use 0.30 m or more');
     });
 
-    it('moves focus to the form title when Edit details is pressed', async () => {
-      action('details').click();
-      await settle();
-      expect(document.activeElement).toBe(el.querySelector('#plan-form-title'));
-      expect(live()).toContain('Details open');
-    });
-
     it('keeps Start over reachable while something is selected', async () => {
       await select('corner', 'v1');
       expect(el.querySelectorAll('[data-action=start-over]').length).toBe(1);
@@ -610,20 +603,234 @@ describe('PlanEditor', () => {
       TestBed.tick();
       expect(toasts.current()).toBeNull();
     });
+  });
 
-    it('expands the phone panel with its handle and Edit details', async () => {
-      const handle = el.querySelector<HTMLButtonElement>('button.handle')!;
-      expect(handle.getAttribute('aria-label')).toBe('Shape controls');
-      expect(handle.getAttribute('aria-expanded')).toBe('false');
-      handle.click();
+  describe('phone action bar and card', () => {
+    // The test window is desktop-sized: show the phone-only parts so they can take focus.
+    let phoneStyle: HTMLStyleElement;
+    beforeEach(() => {
+      phoneStyle = document.createElement('style');
+      phoneStyle.textContent =
+        '.actionbar, .more, .lists { display: flex !important; } .desk-only { display: none !important; }';
+      document.head.append(phoneStyle);
+    });
+    afterEach(() => phoneStyle.remove());
+
+    async function select(kind: string, id: string): Promise<void> {
+      stop(kind, id).dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
       await settle();
-      expect(handle.getAttribute('aria-expanded')).toBe('true');
-      expect(el.classList.contains('panel-expanded')).toBe(true);
-      handle.click();
+    }
+    const chip = (): HTMLButtonElement => el.querySelector<HTMLButtonElement>('[data-chip]')!;
+    const bar = (): HTMLElement => el.querySelector<HTMLElement>('.actionbar')!;
+    const barButtons = (): string[] =>
+      Array.from(bar().querySelectorAll('.actions button')).map((b) => b.textContent!.trim());
+    const card = (): HTMLElement => el.querySelector<HTMLElement>('#plan-card')!;
+    const menuButton = (): HTMLButtonElement => action('more');
+    const item = (name: string): HTMLButtonElement =>
+      el.querySelector<HTMLButtonElement>(`#plan-menu [data-item=${name}]`)!;
+
+    it('shows the hint and the ceiling height chip when nothing is selected', () => {
+      expect(bar().querySelector('.hint')!.textContent).toContain('Tap a wall or corner.');
+      expect(chip().textContent!.trim()).toBe('Height 2.70 m');
+      expect(barButtons()).toEqual([]);
+    });
+
+    it('shows a length chip with Add door, Add window and Add corner, and no Delete, for a wall', async () => {
+      await select('wall', 'w6');
+      expect(chip().textContent!.trim()).toBe('Wall 2: 4.00 m');
+      expect(barButtons()).toEqual(['Add door', 'Add window', 'Add corner']);
+      expect(bar().querySelector('.hint')).toBeNull();
+    });
+
+    it('shows Delete corner for a corner and Delete window for an opening', async () => {
+      await select('corner', 'v1');
+      expect(chip().textContent!.trim()).toBe('Corner 1: 0.00, 0.00 m');
+      expect(barButtons()).toEqual(['Delete corner']);
+      await select('opening', 'o9');
+      expect(chip().textContent!.trim()).toBe('Window 1: 1.75 m wide');
+      expect(barButtons()).toEqual(['Delete window']);
+    });
+
+    it('adds a corner and a door from the action bar', async () => {
+      await select('wall', 'w6');
+      action('bar-add-corner').click();
       await settle();
-      action('details').click();
+      expect(state.plan()!.vertices.length).toBe(5);
+      await select('wall', 'w8');
+      action('bar-add-door').click();
       await settle();
-      expect(el.classList.contains('panel-expanded')).toBe(true);
+      expect(state.plan()!.openings.filter((o) => o.kind === 'door').length).toBe(1);
+      expect(card().getAttribute('aria-label')).toBe('Door 1 details');
+      expect(document.activeElement).toBe(el.querySelector('[data-field=width] input'));
+    });
+
+    it('deletes from the action bar and refuses a corner at three, with its reason', async () => {
+      await select('opening', 'o9');
+      action('bar-delete').click();
+      await settle();
+      expect(state.plan()!.openings.length).toBe(0);
+      expect(document.activeElement).toBe(el.querySelector('svg.plan'));
+
+      await select('corner', 'v1');
+      action('bar-delete').click();
+      await settle();
+      await select('corner', 'v2');
+      expect(action('bar-delete').getAttribute('aria-disabled')).toBe('true');
+      expect(bar().textContent).toContain('A room needs at least 3 corners.');
+    });
+
+    it('opens the card from the chip on its first field and closes it again', async () => {
+      await select('wall', 'w6');
+      expect(chip().getAttribute('aria-expanded')).toBe('false');
+      expect(chip().getAttribute('aria-controls')).toBe('plan-card');
+      chip().click();
+      await settle();
+      expect(chip().getAttribute('aria-expanded')).toBe('true');
+      expect(el.querySelector('app-plan-panel')!.classList.contains('card-open')).toBe(true);
+      expect(card().getAttribute('aria-label')).toBe('Wall 2 details');
+      expect(document.activeElement).toBe(el.querySelector('[data-field=length] input'));
+      chip().click();
+      await settle();
+      expect(chip().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('opens the Ceiling height card when nothing is selected', async () => {
+      chip().click();
+      await settle();
+      expect(card().getAttribute('aria-label')).toBe('Room details');
+      expect(document.activeElement).toBe(el.querySelector('[data-field=height] input'));
+    });
+
+    it('Escape closes the card first, keeping the selection and focusing the chip', async () => {
+      await select('wall', 'w6');
+      chip().click();
+      await settle();
+      await key(el, 'Escape');
+      expect(chip().getAttribute('aria-expanded')).toBe('false');
+      expect(chip().textContent).toContain('Wall 2');
+      expect(document.activeElement).toBe(chip());
+      expect(launcher.close).not.toHaveBeenCalled();
+    });
+
+    it('Escape in a card field commits it, closes the card and focuses the chip', async () => {
+      await select('wall', 'w6');
+      chip().click();
+      await settle();
+      const field = document.activeElement as HTMLInputElement;
+      expect(field.tagName).toBe('INPUT');
+      await key(field, 'Escape');
+      expect(chip().getAttribute('aria-expanded')).toBe('false');
+      expect(document.activeElement).toBe(chip());
+      expect(launcher.close).not.toHaveBeenCalled();
+    });
+
+    it('closes the card when the selection clears', async () => {
+      await select('wall', 'w6');
+      chip().click();
+      await settle();
+      const svg = el.querySelector('svg.plan')!;
+      pointer('pointerdown', svg, 20, 580);
+      pointer('pointerup', svg, 20, 580);
+      await settle();
+      expect(chip().getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('keeps the zoom buttons in the DOM (hidden from touch by CSS) next to Fit', () => {
+      expect(el.querySelectorAll('.zoom').length).toBe(2);
+      expect(action('fit')).not.toBeNull();
+    });
+
+    describe('overflow menu', () => {
+      it('is a menu button with Snap, Walls, Corners and Start over', async () => {
+        expect(menuButton().getAttribute('aria-haspopup')).toBe('menu');
+        expect(menuButton().getAttribute('aria-expanded')).toBe('false');
+        menuButton().click();
+        await settle();
+        expect(menuButton().getAttribute('aria-expanded')).toBe('true');
+        expect(el.querySelector('#plan-menu')!.getAttribute('role')).toBe('menu');
+        const labels = Array.from(el.querySelectorAll('#plan-menu .item')).map((i) =>
+          (i.querySelector('span') ?? i).textContent!.trim(),
+        );
+        expect(labels).toEqual(['Snap', 'Walls…', 'Corners…', 'Start over']);
+        expect(item('start-over').textContent).toContain('Replaces this shape');
+        expect(document.activeElement).toBe(item('snap'));
+      });
+
+      it('toggles Snap with aria-checked and announces it', async () => {
+        menuButton().click();
+        await settle();
+        expect(item('snap').getAttribute('aria-checked')).toBe('true');
+        item('snap').click();
+        await settle();
+        expect(live()).toContain('Snap off');
+        expect(document.activeElement).toBe(menuButton());
+        menuButton().click();
+        await settle();
+        expect(item('snap').getAttribute('aria-checked')).toBe('false');
+      });
+
+      it('moves between items with the arrows and closes with Escape without closing the editor', async () => {
+        menuButton().click();
+        await settle();
+        await key(item('snap'), 'ArrowDown');
+        expect(document.activeElement).toBe(item('walls'));
+        await key(item('walls'), 'End');
+        expect(document.activeElement).toBe(item('start-over'));
+        await key(item('start-over'), 'Escape', { cancelable: true });
+        expect(el.querySelector('#plan-menu')).toBeNull();
+        expect(document.activeElement).toBe(menuButton());
+        expect(launcher.close).not.toHaveBeenCalled();
+      });
+
+      it('opens the Walls list in the card slot and selects from it', async () => {
+        menuButton().click();
+        await settle();
+        item('walls').click();
+        await settle();
+        const lists = el.querySelector('#plan-lists')!;
+        expect(lists.getAttribute('aria-label')).toBe('Walls');
+        expect(document.activeElement).toBe(lists.querySelector('[data-list-title]'));
+        const rows = Array.from(lists.querySelectorAll<HTMLButtonElement>('.row-btn'));
+        expect(rows.length).toBe(4);
+        rows[2].click();
+        await settle();
+        expect(el.querySelector('#plan-lists')).toBeNull();
+        expect(chip().textContent).toContain('Wall 3');
+      });
+
+      it('opens the Corners list and closes it with Close', async () => {
+        menuButton().click();
+        await settle();
+        item('corners').click();
+        await settle();
+        expect(el.querySelector('#plan-lists')!.getAttribute('aria-label')).toBe('Corners');
+        el.querySelector<HTMLButtonElement>('[data-action=close-list]')!.click();
+        await settle();
+        expect(el.querySelector('#plan-lists')).toBeNull();
+        expect(document.activeElement).toBe(chip());
+      });
+
+      it('starts over from the menu with an Undo toast', async () => {
+        await drag(hit('corner', 'v1'), [px(0), py(0)], [px(1), py(1)]);
+        menuButton().click();
+        await settle();
+        item('start-over').click();
+        await settle();
+        expect(corner('v1').x).toBe(0);
+        const toasts = TestBed.inject(Toasts);
+        expect(toasts.current()?.text).toBe('Started over.');
+        toasts.runAction();
+        await settle();
+        expect(corner('v1').x).toBe(1);
+      });
+
+      it('closes when the pointer goes down outside it', async () => {
+        menuButton().click();
+        await settle();
+        el.querySelector('svg.plan')!.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+        await settle();
+        expect(el.querySelector('#plan-menu')).toBeNull();
+      });
     });
   });
 

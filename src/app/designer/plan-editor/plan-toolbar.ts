@@ -1,10 +1,21 @@
-import { Component, inject, output } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import {
+  afterNextRender,
+  Component,
+  ElementRef,
+  inject,
+  Injector,
+  output,
+  signal,
+} from '@angular/core';
 import { EditorSession } from './editor-session';
 import { EditorView } from './editor-view';
 
 /**
  * Top bar (Done, title, Undo, Redo, Snap) and the view tools (Fit, Zoom). On a phone the tools sit
- * in the canvas corner (CSS grid placement); the DOM order is the tab order: the title comes first (it gets the initial focus), then Done.
+ * in the canvas corner (CSS grid placement), Zoom is hidden on touch, and Snap, the Walls and
+ * Corners lists and Start over move into the "More tools" menu. The DOM order is the tab order:
+ * the title comes first (it gets the initial focus), then Done.
  */
 @Component({
   selector: 'app-plan-toolbar',
@@ -56,6 +67,72 @@ import { EditorView } from './editor-view';
       <span id="plan-snap-help" class="visually-hidden"
         >Snaps to a 10 cm grid and 90° corners.</span
       >
+      <button
+        type="button"
+        class="btn tool icon-only more"
+        data-action="more"
+        aria-label="More tools"
+        title="More tools"
+        aria-haspopup="menu"
+        aria-controls="plan-menu"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="toggleMenu()"
+      >
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+          <circle class="dot" cx="3" cy="8" r="1.1" />
+          <circle class="dot" cx="8" cy="8" r="1.1" />
+          <circle class="dot" cx="13" cy="8" r="1.1" />
+        </svg>
+      </button>
+      @if (menuOpen()) {
+        <div
+          id="plan-menu"
+          class="menu menu-surface"
+          role="menu"
+          aria-label="More tools"
+          (keydown)="onMenuKey($event)"
+        >
+          <button
+            type="button"
+            class="menu-item item"
+            role="menuitemcheckbox"
+            data-item="snap"
+            [attr.aria-checked]="session.snap()"
+            (click)="toggleSnap()"
+          >
+            <span>Snap</span>
+            <small>{{ session.snap() ? 'On' : 'Off' }}</small>
+          </button>
+          <button
+            type="button"
+            class="menu-item item"
+            role="menuitem"
+            data-item="walls"
+            (click)="openList('walls')"
+          >
+            Walls…
+          </button>
+          <button
+            type="button"
+            class="menu-item item"
+            role="menuitem"
+            data-item="corners"
+            (click)="openList('corners')"
+          >
+            Corners…
+          </button>
+          <button
+            type="button"
+            class="menu-item item"
+            role="menuitem"
+            data-item="start-over"
+            (click)="startOver()"
+          >
+            <span>Start over</span>
+            <small>Replaces this shape with your simple rectangle.</small>
+          </button>
+        </div>
+      }
     </div>
     <div class="tools" role="group" aria-label="View tools">
       <button
@@ -73,7 +150,7 @@ import { EditorView } from './editor-view';
       </button>
       <button
         type="button"
-        class="btn tool icon-only"
+        class="btn tool icon-only zoom"
         data-action="zoom-out"
         aria-label="Zoom out"
         title="Zoom out"
@@ -83,7 +160,7 @@ import { EditorView } from './editor-view';
       </button>
       <button
         type="button"
-        class="btn tool icon-only"
+        class="btn tool icon-only zoom"
         data-action="zoom-in"
         aria-label="Zoom in"
         title="Zoom in"
@@ -94,9 +171,95 @@ import { EditorView } from './editor-view';
     </div>
   `,
   styleUrl: './plan-toolbar.scss',
+  host: {
+    '(document:pointerdown)': 'onOutsidePointer($event)',
+  },
 })
 export class PlanToolbar {
   protected readonly session = inject(EditorSession);
   protected readonly view = inject(EditorView);
   readonly done = output<void>();
+
+  private readonly document = inject(DOCUMENT);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  protected readonly menuOpen = signal(false);
+
+  protected toggleMenu(): void {
+    if (this.menuOpen()) {
+      this.closeMenu(true);
+      return;
+    }
+    this.menuOpen.set(true);
+    afterNextRender(() => this.items()[0]?.focus(), { injector: this.injector });
+  }
+
+  protected closeMenu(restoreFocus: boolean): void {
+    this.menuOpen.set(false);
+    if (restoreFocus) {
+      this.query('[data-action=more]')?.focus();
+    }
+  }
+
+  protected toggleSnap(): void {
+    const on = !this.session.snap();
+    this.session.snap.set(on);
+    this.session.say(on ? 'Snap on' : 'Snap off');
+    this.closeMenu(true);
+  }
+
+  protected openList(list: 'walls' | 'corners'): void {
+    this.closeMenu(false);
+    this.session.card.set(list);
+    this.session.requestFocus('card');
+  }
+
+  protected startOver(): void {
+    this.closeMenu(true);
+    this.session.startOverWithUndo();
+  }
+
+  /** Escape closes the menu before anything else; arrows, Home and End move through the items. */
+  protected onMenuKey(event: KeyboardEvent): void {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeMenu(true);
+      return;
+    }
+    if (event.key === 'Tab') {
+      // Tab leaves the menu and moves on from its button.
+      this.closeMenu(true);
+      return;
+    }
+    const items = this.items();
+    const at = items.indexOf(this.document.activeElement as HTMLElement);
+    const next =
+      event.key === 'ArrowDown'
+        ? (at + 1) % items.length
+        : event.key === 'ArrowUp'
+          ? (at - 1 + items.length) % items.length
+          : event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? items.length - 1
+              : -1;
+    if (next >= 0) {
+      event.preventDefault();
+      items[next]?.focus();
+    }
+  }
+
+  protected onOutsidePointer(event: Event): void {
+    if (this.menuOpen() && !(event.target as Element).closest('#plan-menu, [data-action=more]')) {
+      this.closeMenu(false);
+    }
+  }
+
+  private items(): HTMLElement[] {
+    return Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('#plan-menu .item'));
+  }
+
+  private query(selector: string): HTMLElement | null {
+    return this.host.nativeElement.querySelector<HTMLElement>(selector);
+  }
 }

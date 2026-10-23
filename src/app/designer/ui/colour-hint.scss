@@ -1,0 +1,38 @@
+// Under the top bar, centred; never blocks a tap in 3D.
+:host {
+  position: absolute;
+  top: calc(var(--frame-top, 0px) + var(--space-2));
+  left: 0;
+  right: 0;
+  z-index: var(--z-view-ui);
+  display: flex;
+  justify-content: center;
+  padding-inline: var(--space-3);
+  pointer-events: none;
+}
+
+.hint {
+  max-width: var(--hint-max-w);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-toast);
+  color: var(--text-primary);
+  font: var(--weight-regular) var(--text-sm) / var(--leading-tight) var(--font-ui);
+  text-align: center;
+  animation: hint-in var(--dur-base) ease-out;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    animation: none;
+  }
+}

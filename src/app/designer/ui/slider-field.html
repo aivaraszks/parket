@@ -41,9 +41,28 @@
     [attr.aria-valuetext]="valueText()"
     [attr.aria-describedby]="hintId"
     (input)="onRange($event)"
+    (pointerdown)="startScrub($event)"
+    (lostpointercapture)="endScrub()"
   />
+  @if (scrubbing()) {
+    <span
+      #bubble
+      class="bubble"
+      popover="manual"
+      aria-hidden="true"
+      [style.left.px]="bubblePos().x"
+      [style.top.px]="bubblePos().y"
+      >{{ bubbleText() }}</span
+    >
+  }
 </div>
-<p class="hint" [id]="hintId" [class.error]="!!errorText()">
+<!-- The range stays the described-by text; it is only shown on error or with a note (saves a line in the tray). -->
+<p
+  class="hint"
+  [id]="hintId"
+  [class.error]="!!errorText()"
+  [class.visually-hidden]="!errorText() && !note()"
+>
   @if (errorText()) {
     <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
       <circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5" />

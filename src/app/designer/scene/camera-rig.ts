@@ -11,14 +11,20 @@ import {
   Vec2,
 } from '../plan/polygon';
 import { RoomShape } from '../plan/room-shape';
-import { ViewPreset } from './scene-commands';
+import type { ViewPreset } from './scene-commands';
+import { FrameInsets, NO_INSETS } from './frame-insets';
 
 const WALL_MARGIN = 0.25;
 const MIN_HEIGHT = 0.25;
 const TWEEN_MS = 700;
+const FRAME_TWEEN_MS = 280; // same as --dur-tray
 const FOV = 58;
 const KEY_ORBIT_STEP = 0.1;
 const ZOOM_FACTOR = 0.8;
+
+function sameInsets(a: FrameInsets, b: FrameInsets): boolean {
+  return a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left;
+}
 
 export interface CameraPose {
   position: Vector3;
@@ -169,7 +175,13 @@ export class CameraRig {
   private readonly lastPosition = new Vector2();
   private readonly lastTarget = new Vector2();
   private aspect = 1;
+  private canvasWidth = 0;
+  private canvasHeight = 0;
+  private insets: FrameInsets = NO_INSETS;
+  /** The first frame is applied at once (no ease on load). */
+  private frameSet = false;
   private tween: Tween | null = null;
+  private frameTween: { start: number; from: FrameInsets; to: FrameInsets } | null = null;
   /** Preset the camera still sits at; null once the user moved it. */
   private activePreset: ViewPreset | null = null;
   /** True after the top-down preset: the camera may then sit above the (see-through) ceiling. */
@@ -210,14 +222,37 @@ export class CameraRig {
     this.refit();
   }
 
-  setAspect(aspect: number): void {
-    this.aspect = aspect > 0 ? aspect : 1;
-    this.camera.aspect = this.aspect;
-    this.camera.updateProjectionMatrix();
-    this.updateTopY();
-    if (this.activePreset === 'top') {
-      this.refit();
+  /** Canvas size in CSS px; with frame insets the camera aspect is that of the visible frame. */
+  setCanvasSize(width: number, height: number): void {
+    this.canvasWidth = width;
+    this.canvasHeight = height;
+    this.applyFrame();
+  }
+
+  /**
+   * Frame the room in the canvas minus the strips covered by UI. The projection keeps its FOV and
+   * principal point on the frame rect (view offset) while the canvas still renders under the chrome.
+   */
+  setFrame(insets: FrameInsets, instant = false): void {
+    const from = this.insets;
+    this.frameTween = null;
+    // Only the first real (non-zero) insets apply at once: no ease on load.
+    const first = !this.frameSet && !sameInsets(insets, NO_INSETS);
+    if (first) this.frameSet = true;
+    if (
+      first ||
+      instant ||
+      this.reducedMotion ||
+      this.canvasWidth <= 0 ||
+      sameInsets(from, insets)
+    ) {
+      this.insets = insets;
+      this.applyFrame();
+      return;
     }
+    // Ease over the tray duration; update() advances it (the scene keeps rendering meanwhile).
+    this.frameTween = { start: performance.now(), from, to: insets };
+    this.onChange();
   }
 
   setPreset(name: ViewPreset, instant = false): void {
@@ -257,8 +292,29 @@ export class CameraRig {
   /** Advance animation and damping. Returns true while another frame is needed. */
   update(now: number): boolean {
     let animating = false;
+    if (this.frameTween) {
+      const { start, from, to } = this.frameTween;
+      const t = Math.min(1, Math.max(0, (now - start) / FRAME_TWEEN_MS));
+      const k = easeInOut(t);
+      const mix = (a: number, b: number): number => a + (b - a) * k;
+      this.insets =
+        t >= 1
+          ? to
+          : {
+              top: mix(from.top, to.top),
+              right: mix(from.right, to.right),
+              bottom: mix(from.bottom, to.bottom),
+              left: mix(from.left, to.left),
+            };
+      this.applyFrame();
+      if (t >= 1) {
+        this.frameTween = null;
+      } else {
+        animating = true;
+      }
+    }
     if (this.tween) {
-      const t = Math.min(1, (now - this.tween.start) / TWEEN_MS);
+      const t = Math.min(1, Math.max(0, (now - this.tween.start) / TWEEN_MS));
       const k = easeInOut(t);
       this.camera.position.lerpVectors(this.tween.fromPosition, this.tween.toPosition, k);
       this.controls.target.lerpVectors(this.tween.fromTarget, this.tween.toTarget, k);
@@ -366,6 +422,47 @@ export class CameraRig {
     const moved = { x: aim.x + dx * along, y: aim.y + dy * along };
     // Keep the wall margin (the line may graze a corner); the spot may be a little off the line.
     return clampPointInside(moved, outline, WALL_MARGIN) ?? eye;
+  }
+
+  /** Project over the whole canvas (no view offset) for the PNG export; false restores the frame. */
+  exportProjection(whole: boolean): void {
+    const W = this.canvasWidth;
+    const H = this.canvasHeight;
+    if (W <= 0 || H <= 0) return;
+    if (whole) {
+      this.camera.clearViewOffset();
+      this.camera.aspect = W / H;
+      this.camera.updateProjectionMatrix();
+    } else {
+      this.applyFrame();
+    }
+  }
+
+  private applyFrame(): void {
+    const W = this.canvasWidth;
+    const H = this.canvasHeight;
+    if (W <= 0 || H <= 0) return;
+    const { top, right, bottom, left } = this.insets;
+    const fw = Math.max(1, W - left - right);
+    const fh = Math.max(1, H - top - bottom);
+    if (left === 0 && right === 0 && top === 0 && bottom === 0) {
+      this.camera.clearViewOffset();
+    } else {
+      this.camera.setViewOffset(fw, fh, -left, -top, W, H);
+    }
+    // OrbitControls pans by clientHeight, but the FOV maps to the frame height: compensate.
+    this.controls.panSpeed = H / fh;
+    this.applyAspect(fw / fh);
+  }
+
+  private applyAspect(aspect: number): void {
+    this.aspect = aspect > 0 ? aspect : 1;
+    this.camera.aspect = this.aspect;
+    this.camera.updateProjectionMatrix();
+    this.updateTopY();
+    if (this.activePreset === 'top') {
+      this.refit();
+    }
   }
 
   private updateTopY(): void {

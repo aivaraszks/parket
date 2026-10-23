@@ -86,7 +86,7 @@ While dragging with Snap on, when the point snaps: a ring `--plan-snap-r` 5px st
 
 ## Bottom panel and side panel
 
-- Phone: the main sheet visuals (`--surface-overlay`, blur, `--radius-lg` top corners, `--shadow-panel`, 44px handle button with the 40x4 bar, `--dur-sheet` `--ease-out`). Two stops: `--plan-panel-collapsed` and `--plan-panel-expanded` (not the sheet's peek/half/full).
+- Phone: the action bar and short card (`--surface-overlay`, blur, `--radius-lg` top corners, `--shadow-panel`, `--dur-tray` `--ease-out`). No handle and no stops (the old `--sheet-*` and `--plan-panel-*` tokens are gone).
 - Collapsed content: selection title `--text-md` semibold, quick-action buttons in a wrapping row (Secondary, 44px, gap `--space-2`), "Edit details" Secondary.
 - Desktop and landscape: `--panel-width`, full height, left hairline, `--surface-overlay`; scrolls inside. Selected form on top, then Room, Walls, Corners as disclosures (header 44px, chevron, `--text-sm` semibold; list rows 44px with `--field-bg-hover` hover and a 2px `--accent` left bar when selected).
 - Forms use the existing number input, button and slider-field specs unchanged. The window "Fixed" tag: `--text-xs` semibold `--text-on-accent` on `--accent`, `--radius-sm`, padding `--space-1` `--space-2` (8.5:1).

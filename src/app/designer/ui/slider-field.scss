@@ -76,6 +76,8 @@
   background: transparent;
   appearance: none;
   cursor: pointer;
+  // Vertical pans scroll the tray; horizontal drags move the thumb.
+  touch-action: pan-y;
 
   &:disabled {
     cursor: not-allowed;
@@ -162,5 +164,56 @@
 @media (forced-colors: active) {
   .range:focus-visible::-webkit-slider-thumb {
     outline: 2px solid CanvasText;
+  }
+}
+
+// Value bubble above the thumb while a pointer scrubs. Fixed from the thumb rect; it is a popover
+// so it sits in the top layer and no transformed or filtered ancestor (the tray) can shift it.
+.bubble {
+  position: fixed;
+  inset: auto;
+  z-index: var(--z-bubble);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--bubble-min-w);
+  height: var(--bubble-h);
+  margin: 0;
+  padding: 0 var(--space-2);
+  overflow: visible;
+  background: var(--bubble-bg);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-toast);
+  color: var(--bubble-text);
+  font: var(--weight-semibold) var(--text-sm) / 1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - var(--bubble-gap)));
+  animation: bubble-in var(--dur-fast) ease-out;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -0.375rem;
+    left: 50%;
+    width: 0.5rem;
+    height: 0.5rem;
+    background: var(--bubble-bg);
+    border-right: 1px solid var(--surface-hairline);
+    border-bottom: 1px solid var(--surface-hairline);
+    transform: translateX(-50%) rotate(45deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes bubble-in {
+  from {
+    opacity: 0;
   }
 }

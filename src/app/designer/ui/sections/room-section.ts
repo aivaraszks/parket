@@ -8,20 +8,19 @@ import { PlanEditorLauncher } from '../plan-editor-launcher';
 import { SliderField } from '../slider-field';
 
 const MODES: readonly { id: RoomMode; label: string }[] = [
-  { id: 'simple', label: 'Simple rectangle' },
+  { id: 'simple', label: 'Rectangle' },
   { id: 'custom', label: 'Custom shape' },
 ];
 
 let nextId = 0;
 
 @Component({
-  selector: 'app-room-tab',
+  selector: 'app-room-section',
   imports: [SliderField],
   template: `
-    <h2 class="visually-hidden">Room</h2>
     <div class="fields">
       <fieldset class="modes">
-        <legend>Room</legend>
+        <legend class="visually-hidden">Room type</legend>
         <div class="segments">
           @for (option of modes; track option.id) {
             <label class="segment">
@@ -38,7 +37,7 @@ let nextId = 0;
             </label>
           }
         </div>
-        <p class="note" id="room-saved-note">Both rooms are saved.</p>
+        <p class="helper" id="room-saved-note">Both rooms are saved.</p>
       </fieldset>
 
       @if (state.mode() === 'simple') {
@@ -74,32 +73,38 @@ let nextId = 0;
           </button>
         </section>
       }
-      <app-slider-field
-        label="Ceiling height"
-        unit="m"
-        [value]="state.roomHeight()"
-        [min]="lowestHeight()"
-        [max]="limits.roomHeight.max"
-        [step]="0.05"
-        [numberStep]="0.01"
-        [decimals]="2"
-        (changed)="state.setRoomHeight($event)"
-      />
-      @if (lowestHeight() > limits.roomHeight.min) {
-        <p class="helper">
-          Lowest possible: {{ lowestHeight().toFixed(2) }} m. Doors and windows set it.
-        </p>
-      }
-      @if (state.mode() === 'simple') {
-        <p class="helper">The window is in one of the long walls.</p>
-      } @else {
-        <p class="helper">Doors and windows are set in the shape editor.</p>
-      }
+
+      <details class="more">
+        <summary>Ceiling height and more</summary>
+        <div class="fields">
+          <app-slider-field
+            label="Ceiling height"
+            unit="m"
+            [value]="state.roomHeight()"
+            [min]="lowestHeight()"
+            [max]="limits.roomHeight.max"
+            [step]="0.05"
+            [numberStep]="0.01"
+            [decimals]="2"
+            (changed)="state.setRoomHeight($event)"
+          />
+          @if (lowestHeight() > limits.roomHeight.min) {
+            <p class="helper">
+              Lowest possible: {{ lowestHeight().toFixed(2) }} m. Doors and windows set it.
+            </p>
+          }
+          @if (state.mode() === 'simple') {
+            <p class="helper">The window is in one of the long walls.</p>
+          } @else {
+            <p class="helper">Doors and windows are set in the shape editor.</p>
+          }
+        </div>
+      </details>
     </div>
   `,
-  styleUrl: './room-tab.scss',
+  styleUrl: './room-section.scss',
 })
-export class RoomTab {
+export class RoomSection {
   protected readonly state = inject(DesignState);
   protected readonly lowestHeight = computed(() =>
     Math.max(this.limits.roomHeight.min, this.state.minRoomHeight()),

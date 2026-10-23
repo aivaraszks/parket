@@ -5,6 +5,8 @@ import { RoomShape } from '../plan/room-shape';
 import { Finish, Sun } from '../state/design-defaults';
 import { Species } from '../state/species';
 import { CameraRig } from './camera-rig';
+import type { FrameInsets } from './frame-insets';
+import { installFrameDebug } from './frame-debug';
 import { FloorBuilder } from './floor-builder';
 import { Lighting } from './lighting';
 import { RoomBuilder } from './room-builder';
@@ -68,6 +70,7 @@ export class FloorScene implements FloorSceneApi {
   private disposed = false;
   private contextLost = false;
   private reportedReady = false;
+  private removeFrameDebug: () => void = () => undefined;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -110,6 +113,24 @@ export class FloorScene implements FloorSceneApi {
       typeof ResizeObserver === 'function' ? new ResizeObserver(this.resize) : null;
     this.resizeObserver?.observe(this.host);
     this.resize();
+    this.removeFrameDebug = installFrameDebug({
+      host: this.host,
+      setFrame: (insets) => this.setFrame(insets),
+      rig: this.rig,
+      renderer: this.renderer,
+      roomBuilder: this.roomBuilder,
+      canvas: this.canvas,
+      render: () => this.renderer.render(this.scene, this.rig.camera),
+      pick: (x: number, y: number) =>
+        pickSurface(
+          this.canvas.getBoundingClientRect(),
+          x,
+          y,
+          this.rig.camera,
+          this.roomBuilder.pickables,
+        ),
+      pickables: () => this.roomBuilder.pickables,
+    });
     this.requestRender();
   }
 
@@ -167,6 +188,11 @@ export class FloorScene implements FloorSceneApi {
     this.rig.zoom(direction);
   }
 
+  setFrame(insets: FrameInsets): void {
+    this.rig.setFrame(insets);
+    this.requestRender();
+  }
+
   exportPng(): Promise<Blob> {
     if (this.disposed || this.contextLost) {
       return Promise.reject(new Error('The 3D view is not available.'));
@@ -177,6 +203,7 @@ export class FloorScene implements FloorSceneApi {
         this.syncScene();
         // The selection highlight is a UI cue: never in the picture.
         this.roomBuilder.setHighlight(null);
+        this.rig.exportProjection(true);
         try {
           this.renderer.render(this.scene, this.rig.camera);
           this.canvas.toBlob(
@@ -184,6 +211,7 @@ export class FloorScene implements FloorSceneApi {
             'image/png',
           );
         } finally {
+          this.rig.exportProjection(false);
           this.roomBuilder.setHighlight(this.highlight);
           this.requestRender();
         }
@@ -196,6 +224,7 @@ export class FloorScene implements FloorSceneApi {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.removeFrameDebug();
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
     this.resizeObserver?.disconnect();
@@ -287,7 +316,7 @@ export class FloorScene implements FloorSceneApi {
     const ratioCap = isSmallScreen() ? 1.5 : 2;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ratioCap));
     this.renderer.setSize(width, height, false);
-    this.rig.setAspect(width / height);
+    this.rig.setCanvasSize(width, height);
     this.requestRender();
   };
 

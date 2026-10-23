@@ -1,0 +1,29 @@
+@if (info(); as current) {
+  <section class="tray-card" role="region" aria-labelledby="designer-tray-title">
+    <header class="tray-header">
+      <app-section-icon class="tray-icon" [id]="current.id" />
+      <h2 id="designer-tray-title" class="tray-title" tabindex="-1">{{ current.label }}</h2>
+      <button
+        type="button"
+        class="tray-close"
+        [attr.aria-label]="'Close ' + current.label"
+        (click)="closed.emit()"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+    </header>
+    <div class="tray-body">
+      <ng-container [ngComponentOutlet]="component()" />
+    </div>
+  </section>
+}

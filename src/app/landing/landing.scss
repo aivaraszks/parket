@@ -231,6 +231,7 @@
   }
 
   &.has-summary {
+    animation-delay: var(--delay-cta-return);
     --cta-reserve: var(--cta-reserve-stacked);
     width: max-content;
     max-width: calc(100vw - 2 * var(--space-6));
@@ -312,6 +313,7 @@
   text-transform: uppercase;
   text-decoration: none;
   white-space: nowrap;
+  pointer-events: auto; // pills take taps during the intro; the rest of the block only reveals
   transition:
     background-color var(--dur-fast),
     color var(--dur-fast);
@@ -358,12 +360,10 @@
   from {
     opacity: 0;
     transform: translate(-50%, 8px);
-    pointer-events: none;
   }
   to {
     opacity: 1;
     transform: translate(-50%, 0);
-    pointer-events: auto;
   }
 }
 
@@ -480,8 +480,14 @@
     }
   }
 
+  // Visually hidden, still read by screen readers.
   .meta {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
   .kicker {

@@ -1,0 +1,66 @@
+<div class="group inline" role="group" aria-label="Views">
+  @for (preset of presets; track preset.id) {
+    <button
+      type="button"
+      class="btn chip"
+      [attr.title]="title() ?? preset.sub"
+      [attr.aria-disabled]="unavailable()"
+      (click)="setPreset(preset.id, false)"
+    >
+      {{ preset.label }}
+    </button>
+  }
+</div>
+
+<button
+  type="button"
+  class="btn chip camera-trigger"
+  data-trigger="camera"
+  aria-label="Camera"
+  aria-controls="camera-popover"
+  [attr.aria-expanded]="open()"
+  [attr.aria-disabled]="unavailable()"
+  [attr.title]="title()"
+  (click)="toggle()"
+>
+  <svg class="icon" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M2 5.5h2.2L5.4 4h5.2l1.2 1.5H14v7H2zM8 11.2a2.4 2.4 0 100-4.8 2.4 2.4 0 000 4.8z" />
+  </svg>
+  <span class="camera-label">Camera</span>
+</button>
+
+@if (open()) {
+  <div class="popover menu-surface" id="camera-popover" role="group" aria-label="Camera">
+    @for (preset of presets; track preset.id) {
+      <button type="button" class="menu-item item" (click)="setPreset(preset.id, true)">
+        <span>{{ preset.label }}</span>
+        <small>{{ preset.sub }}</small>
+      </button>
+    }
+    <button type="button" class="menu-item item" (click)="zoom(1, true)">
+      <span>Zoom in</span>
+    </button>
+    <button type="button" class="menu-item item" (click)="zoom(-1, true)">
+      <span>Zoom out</span>
+    </button>
+    <button
+      type="button"
+      class="menu-item item help-toggle"
+      aria-controls="camera-help"
+      [attr.aria-expanded]="helpOpen()"
+      (click)="helpOpen.set(!helpOpen())"
+    >
+      <span>How to look around</span>
+      <svg class="icon chevron" viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4 6.25 8 10.25 12 6.25" />
+      </svg>
+    </button>
+    @if (helpOpen()) {
+      <div class="help" id="camera-help">
+        <p>Touch: Drag to look around. Pinch to zoom. Two fingers to move.</p>
+        <p>Mouse: Drag to look around. Scroll to zoom. Right-drag to move.</p>
+        <p>Keyboard: Arrow keys to look around. + and - to zoom. 0 to reset the view.</p>
+      </div>
+    }
+  </div>
+}

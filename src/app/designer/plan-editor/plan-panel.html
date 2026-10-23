@@ -1,78 +1,147 @@
-<button
-  type="button"
-  class="handle"
-  aria-controls="plan-panel-content"
-  aria-label="Shape controls"
-  [attr.aria-expanded]="expanded()"
-  (click)="expanded.set(!expanded())"
->
-  <span class="bar" aria-hidden="true"></span>
-</button>
+<!-- Add door / window / corner: the side panel's buttons and the phone's action bar share them. -->
+<ng-template #wallActions let-w let-bar="bar">
+  <button
+    type="button"
+    class="btn"
+    [attr.data-action]="bar ? 'bar-add-door' : 'add-door'"
+    [disabled]="!bar && maxOpenings()"
+    [attr.aria-disabled]="bar && maxOpenings() ? true : null"
+    [attr.aria-describedby]="bar && maxOpenings() ? 'plan-max-openings' : null"
+    (click)="session.addOpeningTo(w.id, 'door')"
+  >
+    Add door
+  </button>
+  <button
+    type="button"
+    class="btn"
+    [attr.data-action]="bar ? 'bar-add-window' : 'add-window'"
+    [disabled]="!bar && maxOpenings()"
+    [attr.aria-disabled]="bar && maxOpenings() ? true : null"
+    [attr.aria-describedby]="bar && maxOpenings() ? 'plan-max-openings' : null"
+    (click)="session.addOpeningTo(w.id, 'window')"
+  >
+    Add window
+  </button>
+  <button
+    type="button"
+    class="btn"
+    [attr.data-action]="bar ? 'bar-add-corner' : 'add-corner'"
+    (click)="session.addCorner(w.id)"
+  >
+    Add corner
+  </button>
+</ng-template>
+<ng-template #maxNote let-bar="bar">
+  <p class="hint" [class.desk-only]="!bar" [attr.id]="bar ? 'plan-max-openings' : null">
+    A room can have up to {{ limits.maxOpenings }} doors and windows.
+  </p>
+</ng-template>
+<!-- Delete the selected corner / door / window (side panel and action bar). -->
+<ng-template #deleteItem let-bar="bar">
+  <button
+    type="button"
+    class="btn"
+    [class.desk-only]="!bar"
+    [attr.data-action]="bar ? 'bar-delete' : 'delete'"
+    [disabled]="!bar && corner() && atMinCorners()"
+    [attr.aria-disabled]="bar && corner() && atMinCorners() ? true : null"
+    [attr.aria-describedby]="
+      corner() && atMinCorners() ? (bar ? 'plan-bar-min-corners' : 'plan-min-corners') : null
+    "
+    (click)="remove()"
+  >
+    Delete {{ removeName() }}
+  </button>
+  @if (corner() && atMinCorners()) {
+    <p
+      class="hint"
+      [class.desk-only]="!bar"
+      [attr.id]="bar ? 'plan-bar-min-corners' : 'plan-min-corners'"
+    >
+      A room needs at least 3 corners.
+    </p>
+  }
+</ng-template>
 
-<!-- Phone, collapsed: the selection and its quick actions. -->
-<div class="summary">
-  <div class="head">
-    <p class="title">{{ title() }}</p>
-    <button type="button" class="btn" data-action="details" (click)="openDetails()">
-      Edit details
-    </button>
+<!-- Walls and Corners rows: the side panel's disclosures and the phone's list card share them. -->
+<ng-template #wallRows>
+  <ul class="list">
+    @for (w of info()?.walls; track w.id) {
+      <li>
+        <button
+          type="button"
+          class="row-btn"
+          [attr.aria-pressed]="wall()?.id === w.id"
+          (click)="pick({ kind: 'wall', id: w.id })"
+        >
+          {{ w.name }} · {{ w.length.toFixed(2) }} m
+          @if (w.openings.length) {
+            <span class="sub"
+              >{{ w.openings.length }}
+              {{ w.openings.length === 1 ? 'door or window' : 'doors and windows' }}</span
+            >
+          }
+        </button>
+      </li>
+    }
+  </ul>
+</ng-template>
+<ng-template #cornerRows>
+  <ul class="list">
+    @for (c of info()?.corners; track c.id) {
+      <li>
+        <button
+          type="button"
+          class="row-btn"
+          [attr.aria-pressed]="corner()?.id === c.id"
+          (click)="pick({ kind: 'corner', id: c.id })"
+        >
+          {{ c.name }} · {{ c.x.toFixed(2) }}, {{ c.y.toFixed(2) }}
+        </button>
+      </li>
+    }
+  </ul>
+</ng-template>
+
+<!-- Phone: the Walls or Corners list, opened from the overflow menu. -->
+@if ((card() === 'walls' || card() === 'corners') && info(); as i) {
+  <div
+    class="lists"
+    id="plan-lists"
+    role="group"
+    [attr.aria-label]="card() === 'walls' ? 'Walls' : 'Corners'"
+  >
+    <div class="head">
+      <h3 class="form-title" tabindex="-1" data-list-title>
+        {{
+          card() === 'walls'
+            ? 'Walls (' + i.walls.length + ')'
+            : 'Corners (' + i.corners.length + ')'
+        }}
+      </h3>
+      <button type="button" class="btn" data-action="close-list" (click)="closeList()">
+        Close
+      </button>
+    </div>
+    <ng-container [ngTemplateOutlet]="card() === 'walls' ? wallRows : cornerRows"></ng-container>
   </div>
-  @if (wall(); as w) {
-    <div class="actions">
-      <button
-        type="button"
-        class="btn"
-        [attr.aria-disabled]="maxOpenings() || null"
-        (click)="session.addOpeningTo(w.id, 'door')"
-      >
-        Add door
-      </button>
-      <button
-        type="button"
-        class="btn"
-        [attr.aria-disabled]="maxOpenings() || null"
-        (click)="session.addOpeningTo(w.id, 'window')"
-      >
-        Add window
-      </button>
-      <button type="button" class="btn" (click)="session.addCorner(w.id)">Add corner</button>
-    </div>
-  } @else if (!selected()) {
-    <p class="hint">Select a corner or wall to edit it.</p>
-  } @else {
-    <div class="actions">
-      <button
-        type="button"
-        class="btn"
-        [attr.aria-disabled]="(corner() && atMinCorners()) || null"
-        (click)="remove()"
-      >
-        Delete {{ removeName() }}
-      </button>
-    </div>
-  }
-  @if (maxOpenings() && wall()) {
-    <p class="hint">A room can have up to {{ limits.maxOpenings }} doors and windows.</p>
-  } @else if (corner() && atMinCorners()) {
-    <p class="hint">A room needs at least 3 corners.</p>
-  }
-</div>
+}
 
-<div class="content" id="plan-panel-content">
+<div class="content" id="plan-card" role="group" [attr.aria-label]="cardName() + ' details'">
   <section class="form" aria-labelledby="plan-form-title">
-    <h3 id="plan-form-title" class="form-title" tabindex="-1">{{ title() }}</h3>
+    <h3 id="plan-form-title" class="form-title desk-only" tabindex="-1">{{ title() }}</h3>
 
     @if (!selected() && info(); as i) {
-      <p class="row">
+      <p class="row desk-only">
         <span>Floor area</span><span class="value">{{ format(i.area) }} m²</span>
       </p>
-      <p class="row">
+      <p class="row desk-only">
         <span>Walls</span
         ><span class="value">{{ i.walls.length }} · {{ i.perimeter.toFixed(1) }} m around</span>
       </p>
     }
     @if (wall(); as w) {
-      <p class="hint">{{ w.from.name }} to {{ w.to.name.toLowerCase() }}</p>
+      <p class="hint desk-only">{{ w.from.name }} to {{ w.to.name.toLowerCase() }}</p>
     }
 
     @for (f of fields(); track f.name) {
@@ -91,7 +160,7 @@
     }
 
     @if (corner(); as c) {
-      <p class="row">
+      <p class="row desk-only">
         <span>Angle</span><span class="value">{{ c.angle.toFixed(0) }}°</span>
       </p>
     }
@@ -136,76 +205,52 @@
         </button>
         <span class="hint">0.10 m per tap</span>
       </div>
-      <div class="actions">
-        <button
-          type="button"
-          class="btn"
-          data-action="add-door"
-          [disabled]="maxOpenings()"
-          (click)="session.addOpeningTo(w.id, 'door')"
-        >
-          Add door
-        </button>
-        <button
-          type="button"
-          class="btn"
-          data-action="add-window"
-          [disabled]="maxOpenings()"
-          (click)="session.addOpeningTo(w.id, 'window')"
-        >
-          Add window
-        </button>
-        <button
-          type="button"
-          class="btn"
-          data-action="add-corner"
-          (click)="session.addCorner(w.id)"
-        >
-          Add corner
-        </button>
+      <div class="actions desk-only">
+        <ng-container
+          [ngTemplateOutlet]="wallActions"
+          [ngTemplateOutletContext]="{ $implicit: w, bar: false }"
+        ></ng-container>
       </div>
       @if (maxOpenings()) {
-        <p class="hint">A room can have up to {{ limits.maxOpenings }} doors and windows.</p>
+        <ng-container [ngTemplateOutlet]="maxNote" [ngTemplateOutletContext]="{ bar: false }" />
       }
-      <h4 class="list-title">Doors and windows</h4>
+      <h4 class="list-title desk-only">Doors and windows</h4>
       @for (o of w.openings; track o.id) {
         <button
           type="button"
-          class="row-btn"
+          class="row-btn desk-only"
           [attr.aria-pressed]="opening()?.opening?.id === o.id"
           (click)="pick({ kind: 'opening', id: o.id })"
         >
           {{ kindName(o) }} · {{ o.width.toFixed(2) }} m wide
         </button>
       } @empty {
-        <p class="hint">No doors or windows on this wall.</p>
+        <p class="hint desk-only">No doors or windows on this wall.</p>
+      }
+      @if (w.openings.length) {
+        <details class="disclosure phone-only">
+          <summary>Doors and windows ({{ w.openings.length }})</summary>
+          @for (o of w.openings; track o.id) {
+            <button type="button" class="row-btn" (click)="pick({ kind: 'opening', id: o.id })">
+              {{ kindName(o) }} · {{ o.width.toFixed(2) }} m wide
+            </button>
+          }
+        </details>
       }
     } @else if (selected()) {
-      <button
-        type="button"
-        class="btn"
-        data-action="delete"
-        [attr.aria-describedby]="corner() && atMinCorners() ? 'plan-min-corners' : null"
-        [disabled]="corner() && atMinCorners()"
-        (click)="remove()"
-      >
-        Delete {{ removeName() }}
-      </button>
-      @if (corner() && atMinCorners()) {
-        <p class="hint" id="plan-min-corners">A room needs at least 3 corners.</p>
-      }
+      <ng-container [ngTemplateOutlet]="deleteItem" [ngTemplateOutletContext]="{ bar: false }" />
     } @else {
-      <p class="hint">Select a corner or wall to edit it.</p>
-      <button type="button" class="btn" data-action="start-over" (click)="startOver()">
+      <p class="hint desk-only">Select a corner or wall to edit it.</p>
+      <button type="button" class="btn desk-only" data-action="start-over" (click)="startOver()">
         Start over
       </button>
-      <p class="hint">Replaces this shape with your simple rectangle.</p>
+      <p class="hint desk-only">Replaces this shape with your simple rectangle.</p>
     }
   </section>
 
   @if (info(); as i) {
     @if (selected()) {
-      <details class="disclosure">
+      <details class="disclosure desk-only">
         <summary>Room</summary>
         <p class="row">
           <span>Floor area</span><span class="value">{{ format(i.area) }} m²</span>
@@ -220,45 +265,49 @@
         <p class="hint">Replaces this shape with your simple rectangle.</p>
       </details>
     }
-    <details class="disclosure" open>
+    <details class="disclosure desk-only" open>
       <summary>Walls ({{ i.walls.length }})</summary>
-      <ul class="list">
-        @for (w of i.walls; track w.id) {
-          <li>
-            <button
-              type="button"
-              class="row-btn"
-              [attr.aria-pressed]="wall()?.id === w.id"
-              (click)="pick({ kind: 'wall', id: w.id })"
-            >
-              {{ w.name }} · {{ w.length.toFixed(2) }} m
-              @if (w.openings.length) {
-                <span class="sub"
-                  >{{ w.openings.length }}
-                  {{ w.openings.length === 1 ? 'door or window' : 'doors and windows' }}</span
-                >
-              }
-            </button>
-          </li>
-        }
-      </ul>
+      <ng-container [ngTemplateOutlet]="wallRows"></ng-container>
     </details>
-    <details class="disclosure">
+    <details class="disclosure desk-only">
       <summary>Corners ({{ i.corners.length }})</summary>
-      <ul class="list">
-        @for (c of i.corners; track c.id) {
-          <li>
-            <button
-              type="button"
-              class="row-btn"
-              [attr.aria-pressed]="corner()?.id === c.id"
-              (click)="pick({ kind: 'corner', id: c.id })"
-            >
-              {{ c.name }} · {{ c.x.toFixed(2) }}, {{ c.y.toFixed(2) }}
-            </button>
-          </li>
-        }
-      </ul>
+      <ng-container [ngTemplateOutlet]="cornerRows"></ng-container>
     </details>
+  }
+</div>
+
+<!-- Phone: the action bar for the selection (hidden in the side panel). -->
+<div class="actionbar">
+  <div class="context">
+    @if (!selected()) {
+      <p class="hint">Tap a wall or corner.</p>
+    }
+    <button
+      type="button"
+      class="btn chip"
+      data-chip
+      data-action="details"
+      aria-controls="plan-card"
+      [attr.aria-expanded]="card() === 'details'"
+      (click)="toggleCard()"
+    >
+      <span class="chip-text">{{ chipText() }}</span>
+      <svg class="caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4" /></svg>
+    </button>
+  </div>
+  @if (wall(); as w) {
+    <div class="actions" role="group" aria-label="Wall actions">
+      <ng-container
+        [ngTemplateOutlet]="wallActions"
+        [ngTemplateOutletContext]="{ $implicit: w, bar: true }"
+      ></ng-container>
+    </div>
+    @if (maxOpenings()) {
+      <ng-container [ngTemplateOutlet]="maxNote" [ngTemplateOutletContext]="{ bar: true }" />
+    }
+  } @else if (selected()) {
+    <div class="actions">
+      <ng-container [ngTemplateOutlet]="deleteItem" [ngTemplateOutletContext]="{ bar: true }" />
+    </div>
   }
 </div>

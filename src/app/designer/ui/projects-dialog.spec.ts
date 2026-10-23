@@ -1,6 +1,8 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SceneCommands } from '../scene/scene-commands';
+import { ColouringState } from '../state/colouring-state';
 import { DesignState } from '../state/design-state';
 import { ProjectIndex } from '../state/project-index';
 import { ProjectMeta } from '../state/project-meta';
@@ -30,7 +32,22 @@ describe('ProjectsDialog', () => {
     remove: vi.fn(),
   };
 
+  const plan = signal<unknown>(null);
+  const design = {
+    activeId,
+    plan,
+    reset: vi.fn(),
+    undo: vi.fn(),
+    canUndo: () => true,
+    dismissUndo: vi.fn(),
+  };
+  const scene = { setPreset: vi.fn() };
+
   beforeEach(() => {
+    plan.set(null);
+    design.reset.mockReset();
+    design.undo.mockReset();
+    scene.setPreset.mockReset();
     list.set([
       meta('pmyroom01', 'My room', NOW - 3 * 86_400_000),
       meta('pkitchen1', 'Kitchen', NOW),
@@ -51,7 +68,8 @@ describe('ProjectsDialog', () => {
       providers: [
         { provide: Projects, useValue: projects },
         { provide: ProjectIndex, useValue: { projects: list } },
-        { provide: DesignState, useValue: { activeId } },
+        { provide: DesignState, useValue: design },
+        { provide: SceneCommands, useValue: scene },
       ],
     });
   });
@@ -192,6 +210,85 @@ describe('ProjectsDialog', () => {
     expect(document.activeElement).toBe(inner);
     vi.useRealTimers();
     expect(chip).toBeTruthy();
+  });
+
+  describe('Reset to defaults', () => {
+    it('is in the current row menu only, between Duplicate and Delete', async () => {
+      const { el, q, flush } = await setup();
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      const labels = () =>
+        Array.from(el.querySelectorAll('.menu .item')).map((i) => i.textContent?.trim());
+      expect(labels()).toEqual(['Rename', 'Duplicate', 'Reset to defaults', 'Delete']);
+      q('[data-more="phall0001"]').click();
+      await flush();
+      expect(labels()).toEqual(['Rename', 'Duplicate', 'Delete']);
+    });
+
+    it('resets, returns to the Corner view, offers Undo and closes', async () => {
+      const { q, flush, closed } = await setup();
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      q('.menu .item:nth-child(3)').click();
+      expect(design.reset).toHaveBeenCalledTimes(1);
+      expect(scene.setPreset).toHaveBeenCalledWith('corner');
+      const toasts = TestBed.inject(Toasts);
+      expect(toasts.current()?.text).toBe('Design reset.');
+      expect(toasts.current()?.action?.label).toBe('Undo');
+      expect(TestBed.inject(ColourAnnouncer).message()).toBe('Design reset.');
+      expect(closed).toHaveBeenCalledTimes(1);
+      toasts.runAction();
+      expect(design.undo).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns the Colour selection to "All walls" when Colour is open', async () => {
+      const colouring = TestBed.inject(ColouringState);
+      colouring.setColourOpen(true);
+      colouring.select({ kind: 'wall', id: 's2' }, 'list');
+      const { q, flush } = await setup();
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      q('.menu .item:nth-child(3)').click();
+      expect(colouring.selected()).toEqual({ kind: 'walls' });
+    });
+
+    it('leaves the selection alone when Colour is closed', async () => {
+      const colouring = TestBed.inject(ColouringState);
+      const { q, flush } = await setup();
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      q('.menu .item:nth-child(3)').click();
+      expect(colouring.selected()).toBeNull();
+    });
+
+    it('notes that the room shape is kept when a plan exists', async () => {
+      plan.set({});
+      const { q, flush } = await setup();
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      q('.menu .item:nth-child(3)').click();
+      expect(TestBed.inject(Toasts).current()?.text).toBe('Design reset. Your room shape is kept.');
+    });
+
+    it('moves focus to the toast Undo button, else the Projects chip', async () => {
+      const { fixture, q, flush, chip } = await setup();
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      const action = document.createElement('button');
+      action.className = 'action';
+      toast.appendChild(action);
+      document.body.appendChild(toast);
+      q('[data-more="pkitchen1"]').click();
+      await flush();
+      vi.useFakeTimers();
+      q('.menu .item:nth-child(3)').click();
+      fixture.destroy();
+      vi.runAllTimers();
+      expect(document.activeElement).toBe(action);
+      toast.remove();
+      chip.blur();
+      vi.useRealTimers();
+    });
   });
 
   it('Escape closes the menu first (focus back on More), then the dialog', async () => {

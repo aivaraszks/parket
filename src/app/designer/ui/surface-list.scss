@@ -3,38 +3,60 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-width: 0;
   font-family: var(--font-ui);
 }
 
-fieldset {
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
+// The left fade only grows once the row is scrolled (scroll-driven; without support it stays off).
+@property --fade-l {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
 }
 
-legend {
-  padding: 0;
-  margin-bottom: var(--space-2);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-caps);
-  text-transform: uppercase;
-  color: var(--text-muted);
+@keyframes fade-in-left {
+  to {
+    --fade-l: var(--chip-fade-w);
+  }
 }
 
-.options {
+// One chip row: constant height, scrolls sideways with a soft edge fade.
+.row {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--chip-gap);
+  box-sizing: border-box;
+  height: calc(var(--chip-h) + 2 * var(--space-2));
   // Room for the focus ring of the first and last chips.
-  padding: var(--space-1);
+  padding: var(--space-2);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 var(--fade-l),
+    #000 calc(100% - var(--chip-fade-w)),
+    transparent
+  );
+
+  @supports (animation-timeline: scroll()) {
+    animation: fade-in-left linear both;
+    animation-timeline: scroll(self x);
+    animation-range: 0 var(--chip-fade-w);
+  }
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .item {
   position: relative;
   display: inline-flex;
+  flex: none;
+  scroll-snap-align: start;
   cursor: pointer;
 
   input {
@@ -52,11 +74,13 @@ legend {
   @include shared.colour-transition;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  gap: var(--space-1);
   box-sizing: border-box;
-  min-height: var(--target-min);
-  padding: 0 var(--space-3);
-  background: var(--surface-chip-bg);
+  height: var(--chip-h);
+  min-width: var(--chip-min-w);
+  padding: 0 var(--chip-pad-x);
+  background: var(--field-bg);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-pill);
   color: var(--text-primary);
@@ -68,27 +92,18 @@ legend {
   background: var(--field-bg-hover);
 }
 
-.dot {
-  flex: none;
-  width: calc(var(--chip-dot-size) * var(--ui-scale));
-  height: calc(var(--chip-dot-size) * var(--ui-scale));
-  background: var(--dot);
-  border: 1px solid var(--chip-dot-border);
-  border-radius: 50%;
-}
-
 .check {
   flex: none;
   width: calc(var(--chip-check-size) * var(--ui-scale));
   height: calc(var(--chip-check-size) * var(--ui-scale));
-  color: var(--text-accent);
 }
 
-// Selected: a 2px ring (border plus an inset line) and a check, not colour alone.
+// Selected: gold fill with dark text and weight (and a check on the What chips), not hue alone.
 input:checked + .face {
-  background: var(--surface-chip-bg-selected);
-  border-color: var(--surface-chip-ring);
-  box-shadow: inset 0 0 0 1px var(--surface-chip-ring);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+  font-weight: var(--weight-semibold);
 }
 
 input:focus-visible + .face {
@@ -98,6 +113,7 @@ input:focus-visible + .face {
 }
 
 .note {
+  align-self: center;
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);

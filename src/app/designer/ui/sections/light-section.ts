@@ -6,10 +6,9 @@ import { PlanEditorLauncher } from '../plan-editor-launcher';
 import { SliderField } from '../slider-field';
 
 @Component({
-  selector: 'app-light-tab',
+  selector: 'app-light-section',
   imports: [SliderField],
   template: `
-    <h2 class="visually-hidden">Light</h2>
     <div class="fields">
       <label class="switch">
         <input
@@ -33,10 +32,9 @@ import { SliderField } from '../slider-field';
         [max]="limits.sunAzimuth.max"
         [step]="1"
         [disabled]="off()"
-        note="Where the sun comes from, as seen from above. The patch of light enters through a window."
         (changed)="state.setSun({ azimuth: $event })"
       />
-      <div class="hint-region" aria-live="polite">
+      <div class="hint-region" aria-live="polite" [class.empty]="!noWindows() && !behindWalls()">
         @if (noWindows()) {
           <p class="helper">
             This room has no windows. Add one in the shape editor.
@@ -59,21 +57,27 @@ import { SliderField } from '../slider-field';
         (changed)="state.setSun({ elevation: $event })"
       />
       <app-slider-field
-        label="Brightness"
-        unit="x"
-        [value]="state.sun().intensity"
-        [min]="limits.sunIntensity.min"
-        [max]="limits.sunIntensity.max"
-        [step]="0.1"
-        [decimals]="1"
+        label="Sun brightness"
+        unit="%"
+        [value]="percent(state.sun().intensity)"
+        [min]="percent(limits.sunIntensity.min)"
+        [max]="percent(limits.sunIntensity.max)"
+        [step]="10"
         [disabled]="off()"
-        (changed)="state.setSun({ intensity: $event })"
+        (changed)="state.setSun({ intensity: $event / 100 })"
       />
+      <details class="more">
+        <summary>More</summary>
+        <p class="helper">
+          Sun direction is where the sun comes from, as seen from above. The patch of light enters
+          through a window.
+        </p>
+      </details>
     </div>
   `,
-  styleUrl: './light-tab.scss',
+  styleUrl: './light-section.scss',
 })
-export class LightTab {
+export class LightSection {
   protected readonly state = inject(DesignState);
   protected readonly limits = LIMITS;
   protected readonly launcher = inject(PlanEditorLauncher);
@@ -89,6 +93,11 @@ export class LightTab {
       this.hasWindows() &&
       !sunHitsWindow(this.state.roomShape(), this.state.sun().azimuth),
   );
+
+  /** Brightness is stored as a factor and shown as a percent. */
+  protected percent(factor: number): number {
+    return Math.round(factor * 100);
+  }
 
   protected onSwitch(event: Event): void {
     this.state.setSun({ on: (event.target as HTMLInputElement).checked });

@@ -1,6 +1,5 @@
+@use './section';
 @use '../shared';
-
-@include shared.tab-content;
 
 .switch {
   position: relative;
@@ -85,4 +84,9 @@ input:focus-visible + .track {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+
+// The live region stays in the DOM; while empty it must not add a row gap.
+.hint-region.empty {
+  margin-top: calc(-1 * var(--space-3));
 }

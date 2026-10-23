@@ -37,7 +37,6 @@ import { PlanToolbar } from './plan-toolbar';
     role: 'dialog',
     'aria-modal': 'true',
     'aria-labelledby': 'plan-editor-title',
-    '[class.panel-expanded]': 'session.panelExpanded()',
     '(keydown)': 'onKeydown($event)',
   },
 })
@@ -72,9 +71,9 @@ export class PlanEditor {
   }
 
   protected skipToControls(): void {
-    const handle = this.query('.handle');
-    const visible = handle && globalThis.getComputedStyle(handle).display !== 'none';
-    (visible ? handle : this.query('.content button, .content input, .content summary'))?.focus();
+    const chip = this.query('[data-chip]');
+    const visible = chip && globalThis.getComputedStyle(chip).display !== 'none';
+    (visible ? chip : this.query('.content button, .content input, .content summary'))?.focus();
   }
 
   protected onKeydown(event: KeyboardEvent): void {
@@ -83,9 +82,17 @@ export class PlanEditor {
     }
     const target = event.target as HTMLElement;
     const typing = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
-    if (event.key === 'Escape' && !typing) {
+    // A field in the open card: Escape commits what was typed (blur) and closes the card.
+    const cardField = typing && this.session.card() !== null;
+    if (event.key === 'Escape' && (!typing || cardField)) {
       event.preventDefault();
-      if (this.session.selection()) {
+      if (cardField) {
+        target.blur();
+      }
+      if (this.session.card()) {
+        this.session.card.set(null);
+        this.query('[data-chip]')?.focus();
+      } else if (this.session.selection()) {
         this.session.select(null);
       } else {
         this.close();

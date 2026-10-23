@@ -3,7 +3,6 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SceneCommands } from '../scene/scene-commands';
-import { ColouringState } from '../state/colouring-state';
 import { ShareLink } from '../share/share-link';
 import { ImageExport } from './image-export';
 import { ViewToolbar } from './view-toolbar';
@@ -53,173 +52,20 @@ describe('ViewToolbar', () => {
     return { fixture, el, flush, q };
   }
 
-  const escape = () =>
-    document.activeElement!.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
-    );
-
-  it('inline presets and zoom call the scene', async () => {
+  it('holds Back, Project, Camera, Share and Save image in that order', async () => {
     const { el } = await setup();
-    const inline = Array.from(el.querySelectorAll<HTMLElement>('.group.inline button'));
-    inline.find((b) => b.textContent?.includes('Doorway'))!.click();
-    inline.find((b) => b.textContent?.includes('Top-down'))!.click();
-    el.querySelector<HTMLElement>('[aria-label="Zoom in"]')!.click();
-    el.querySelector<HTMLElement>('[aria-label="Zoom out"]')!.click();
-    expect(scene.setPreset.mock.calls).toEqual([['doorway'], ['top']]);
-    expect(scene.zoom.mock.calls).toEqual([[1], [-1]]);
+    const order = Array.from(
+      el.querySelectorAll('.bar > a, .bar > button, .bar > app-camera-menu'),
+    ).map((n) => n.getAttribute('data-trigger') ?? n.tagName.toLowerCase());
+    expect(order).toEqual(['a', 'projects', 'app-camera-menu', 'share', 'save']);
   });
 
-  it('Views menu opens, focuses the first item, picks a preset and closes', async () => {
-    const { el, q, flush } = await setup();
-    const trigger = q('[data-trigger=views]');
-    expect(trigger.getAttribute('aria-expanded')).toBe('false');
-    trigger.click();
-    await flush();
-    expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    const items = el.querySelectorAll<HTMLElement>('#views-popover .item');
-    expect(items.length).toBe(6);
-    expect(document.activeElement).toBe(items[0]);
-    items[1].click();
-    await flush();
-    expect(scene.setPreset).toHaveBeenCalledWith('doorway');
-    expect(el.querySelector('#views-popover')).toBeNull();
-  });
-
-  it('Escape closes the Views menu and returns focus to its trigger', async () => {
-    const { el, q, flush } = await setup();
-    q('[data-trigger=views]').click();
-    await flush();
-    escape();
-    await flush();
-    expect(el.querySelector('#views-popover')).toBeNull();
-    expect(document.activeElement).toBe(q('[data-trigger=views]'));
-  });
-
-  it('a click outside closes the popover but a click inside does not', async () => {
-    const { el, q, flush } = await setup();
-    q('[data-trigger=views]').click();
-    await flush();
-    q('#views-popover').click();
-    await flush();
-    expect(el.querySelector('#views-popover')).not.toBeNull();
-    document.body.click();
-    await flush();
-    expect(el.querySelector('#views-popover')).toBeNull();
-  });
-
-  it('toggling the trigger twice closes the menu', async () => {
-    const { el, q, flush } = await setup();
-    q('[data-trigger=views]').click();
-    await flush();
-    q('[data-trigger=views]').click();
-    await flush();
-    expect(el.querySelector('#views-popover')).toBeNull();
-  });
-
-  it('opening Help replaces the Views menu; focus goes in, Close returns focus', async () => {
-    const { el, q, flush } = await setup();
-    q('[data-trigger=views]').click();
-    await flush();
-    q('[data-trigger=help]').click();
-    await flush();
-    expect(el.querySelector('#views-popover')).toBeNull();
-    const help = q('#help-popover');
-    expect(help.textContent).toContain('Arrow keys to look around');
-    expect(q('[data-trigger=help]').getAttribute('aria-expanded')).toBe('true');
-    expect(document.activeElement).toBe(help.querySelector('button'));
-    help.querySelector<HTMLElement>('button')!.click();
-    await flush();
-    expect(el.querySelector('#help-popover')).toBeNull();
-    expect(document.activeElement).toBe(q('[data-trigger=help]'));
-  });
-
-  it('Escape closes Help and restores focus to the ? button', async () => {
-    const { el, q, flush } = await setup();
-    q('[data-trigger=help]').click();
-    await flush();
-    escape();
-    await flush();
-    expect(el.querySelector('#help-popover')).toBeNull();
-    expect(document.activeElement).toBe(q('[data-trigger=help]'));
-  });
-
-  it('the Colour toggle is a pressed button that turns Colour mode on and off', async () => {
-    const { fixture, q } = await setup();
-    const colouring = TestBed.inject(ColouringState);
-    colouring.setActive(false);
-    const toggle = q('[data-colour-toggle]');
-    expect(toggle.textContent).toContain('Colour');
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    toggle.click();
-    fixture.detectChanges();
-    expect(colouring.active()).toBe(true);
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    toggle.click();
-    fixture.detectChanges();
-    expect(colouring.active()).toBe(false);
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
-  });
-
-  it('the Views menu has a Colour mode item that toggles and closes the menu', async () => {
-    const { el, q, flush } = await setup();
-    const colouring = TestBed.inject(ColouringState);
-    colouring.setActive(false);
-    q('[data-trigger=views]').click();
-    await flush();
-    const item = q('[data-colour-item]');
-    expect(item.getAttribute('aria-pressed')).toBe('false');
-    expect(item.textContent).toContain('Tap surfaces to colour them');
-    item.click();
-    await flush();
-    expect(colouring.active()).toBe(true);
-    expect(el.querySelector('#views-popover')).toBeNull();
-    colouring.setActive(false);
-  });
-
-  it('Escape closing the Views menu leaves Colour mode alone (the event is handled)', async () => {
-    const { q, flush } = await setup();
-    const colouring = TestBed.inject(ColouringState);
-    colouring.setActive(true);
-    q('[data-trigger=views]').click();
-    await flush();
-    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
-    document.activeElement!.dispatchEvent(event);
-    expect(event.defaultPrevented).toBe(true);
-    expect(colouring.active()).toBe(true);
-    colouring.setActive(false);
-  });
-
-  it('the Colour toggle is aria-disabled and does nothing without a 3D view', async () => {
-    status.set('no-webgl');
-    const { fixture, q } = await setup();
-    const colouring = TestBed.inject(ColouringState);
-    colouring.setActive(false);
-    const toggle = q('[data-colour-toggle]');
-    expect(toggle.getAttribute('aria-disabled')).toBe('true');
-    expect(toggle.title).toBe('Needs 3D view');
-    toggle.click();
-    fixture.detectChanges();
-    expect(colouring.active()).toBe(false);
-  });
-
-  it('without a 3D view Help still opens but Views, presets, zoom and Save do nothing', async () => {
-    status.set('no-webgl');
-    const { el, q, flush } = await setup();
-    const views = q('[data-trigger=views]');
-    expect(views.getAttribute('aria-disabled')).toBe('true');
-    views.click();
-    await flush();
-    expect(el.querySelector('#views-popover')).toBeNull();
-    q('.group.inline button').click();
-    q('[aria-label="Zoom in"]').click();
-    q('.primary').click();
-    expect(scene.setPreset).not.toHaveBeenCalled();
-    expect(scene.zoom).not.toHaveBeenCalled();
-    expect(exporter.save).not.toHaveBeenCalled();
-    expect(q('.primary').title).toBe('Needs 3D view');
-    q('[data-trigger=help]').click();
-    await flush();
-    expect(el.querySelector('#help-popover')).not.toBeNull();
+  it('has no Colour toggle, Views menu or ? chip', async () => {
+    const { el } = await setup();
+    expect(
+      el.querySelector('[data-colour-toggle], [data-trigger=views], [data-trigger=help]'),
+    ).toBeNull();
+    expect(el.textContent).not.toContain('Colour');
   });
 
   it('Save image calls the exporter once, and not while busy', async () => {
@@ -229,15 +75,34 @@ describe('ViewToolbar', () => {
     busy.set(true);
     await flush();
     expect(q('.primary').getAttribute('aria-busy')).toBe('true');
-    expect(q('.primary').textContent).toContain('Saving...');
+    expect(q('.primary').textContent).toContain('Saving image...');
+    expect(q('.primary').getAttribute('aria-label')).toBe('Saving image...');
     q('.primary').click();
     expect(exporter.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('Save keeps its name for icon-only phones', async () => {
+    const { q } = await setup();
+    expect(q('.primary').getAttribute('aria-label')).toBe('Save image');
+  });
+
+  it('without a 3D view Save does nothing; the tooltip shows after a failure, not while loading', async () => {
+    status.set('loading');
+    const { q, fixture } = await setup();
+    expect(q('.primary').getAttribute('aria-disabled')).toBe('true');
+    expect(q('.primary').hasAttribute('title')).toBe(false);
+    status.set('no-webgl');
+    fixture.detectChanges();
+    expect(q('.primary').title).toBe('Needs 3D view');
+    q('.primary').click();
+    expect(exporter.save).not.toHaveBeenCalled();
   });
 
   it('names the back link by its purpose', async () => {
     const { el } = await setup();
     expect(el.querySelector('a')?.getAttribute('aria-label')).toBe('Back to Parket home');
   });
+
   describe('Projects and Share chips', () => {
     it('shows the active project name and opens the dialog request', async () => {
       const { fixture, q } = await setup();
@@ -249,16 +114,6 @@ describe('ViewToolbar', () => {
       expect(chip.textContent).toContain('Kitchen');
       chip.click();
       expect(opened).toHaveBeenCalledTimes(1);
-    });
-
-    it('puts the Projects chip right after Back and Share before Save image', async () => {
-      const { el } = await setup();
-      const buttons = Array.from(
-        el.querySelectorAll('.bar > a, .bar > button, .bar > div > button'),
-      );
-      const at = (sel: string) => buttons.indexOf(el.querySelector(sel)!);
-      expect(at('[data-trigger="projects"]')).toBe(1);
-      expect(at('[data-trigger="share"]')).toBeLessThan(at('.chip.primary'));
     });
 
     it('Share makes a link, and is busy and aria-disabled while it works', async () => {

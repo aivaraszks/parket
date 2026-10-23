@@ -11,51 +11,15 @@ const BLOCK_RULE =
   'Plank length must be at least twice the block width (planks per block x width).';
 
 @Component({
-  selector: 'app-floor-tab',
+  selector: 'app-floor-section',
   imports: [SliderField, WoodPicker, FinishControl],
   template: `
-    <h2 class="visually-hidden">Floor</h2>
     <div class="fields">
       <app-wood-picker
         [species]="species"
         [value]="state.species()"
         (picked)="state.setSpecies($event)"
       />
-      <p class="helper">Pattern: Herringbone</p>
-      <app-slider-field
-        label="Plank length"
-        unit="mm"
-        [value]="state.plank().length"
-        [min]="limits.plankLength.min"
-        [max]="limits.plankLength.max"
-        [rangeMin]="state.plankLengthMin()"
-        [step]="10"
-        [error]="lengthError()"
-        (changed)="setLength($event)"
-      />
-      <app-slider-field
-        label="Plank width"
-        unit="mm"
-        [value]="state.plank().width"
-        [min]="limits.plankWidth.min"
-        [max]="limits.plankWidth.max"
-        [rangeMax]="state.plankWidthMax()"
-        [step]="5"
-        [error]="widthError()"
-        (changed)="setWidth($event)"
-      />
-      <app-slider-field
-        label="Planks per block"
-        [value]="state.planksPerBlock()"
-        [min]="limits.planksPerBlock.min"
-        [max]="limits.planksPerBlock.max"
-        [step]="1"
-        note="1 = classic herringbone"
-        (changed)="setBlock($event)"
-      />
-      @if (adjusted()) {
-        <p class="helper" role="status">{{ adjusted() }}</p>
-      }
       <app-slider-field
         label="Angle"
         unit="deg"
@@ -64,15 +28,58 @@ const BLOCK_RULE =
         [max]="limits.angle.max"
         [step]="1"
         [ticks]="angleTicks"
-        note="0 deg = zigzag runs along the room's length. Patterns repeat after 180 deg."
         (changed)="state.setAngle($event)"
       />
       <app-finish-control [value]="state.finish()" (picked)="state.setFinish($event)" />
+
+      <details class="more">
+        <summary>Plank size and pattern</summary>
+        <div class="fields">
+          <p class="helper">Pattern: Herringbone</p>
+          <app-slider-field
+            label="Plank length"
+            unit="mm"
+            [value]="state.plank().length"
+            [min]="limits.plankLength.min"
+            [max]="limits.plankLength.max"
+            [rangeMin]="state.plankLengthMin()"
+            [step]="10"
+            [error]="lengthError()"
+            (changed)="setLength($event)"
+          />
+          <app-slider-field
+            label="Plank width"
+            unit="mm"
+            [value]="state.plank().width"
+            [min]="limits.plankWidth.min"
+            [max]="limits.plankWidth.max"
+            [rangeMax]="state.plankWidthMax()"
+            [step]="5"
+            [error]="widthError()"
+            (changed)="setWidth($event)"
+          />
+          <app-slider-field
+            label="Planks per block"
+            [value]="state.planksPerBlock()"
+            [min]="limits.planksPerBlock.min"
+            [max]="limits.planksPerBlock.max"
+            [step]="1"
+            note="1 = classic herringbone"
+            (changed)="setBlock($event)"
+          />
+          @if (adjusted()) {
+            <p class="helper" role="status">{{ adjusted() }}</p>
+          }
+          <p class="helper">
+            Angle 0 deg: zigzag runs along the room's length. Patterns repeat after 180 deg.
+          </p>
+        </div>
+      </details>
     </div>
   `,
-  styleUrl: './tab.scss',
+  styleUrl: './section.scss',
 })
-export class FloorTab {
+export class FloorSection {
   protected readonly state = inject(DesignState);
   protected readonly limits = LIMITS;
   protected readonly species = SPECIES;
