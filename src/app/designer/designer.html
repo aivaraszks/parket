@@ -6,14 +6,14 @@
   (keydown.escape)="onStageEscape($event)"
 >
   <h1 class="visually-hidden">Floor designer</h1>
-  <app-view-toolbar />
+  <app-view-toolbar (projects)="projectsOpen.set(true)" />
   <app-viewport />
   <app-viewport-status />
 </main>
 <app-controls-sheet [attr.inert]="covered() ? '' : null" [(stop)]="stop" [(tab)]="tab" />
 <router-outlet (activate)="editorOpen.set(true)" (deactivate)="onEditorClosed()" />
 <app-editor-loader />
-<app-toast-host [attr.inert]="confirm.pending() ? '' : null" />
+<app-toast-host [attr.inert]="dialogOpen() ? '' : null" />
 @if (exporter.fallbackUrl(); as url) {
   <app-image-dialog [url]="url" (closed)="exporter.closeFallback()" />
 }
@@ -25,5 +25,23 @@
     [body]="request.body"
     (confirmed)="confirm.confirm()"
     (cancelled)="confirm.cancel()"
+  />
+}
+@if (projectsOpen()) {
+  <app-projects-dialog (closed)="projectsOpen.set(false)" />
+}
+@if (shareLink.fallbackUrl(); as url) {
+  <app-share-fallback-dialog
+    [url]="url"
+    [name]="shareLink.projectName()"
+    (closed)="shareLink.closeFallback()"
+  />
+}
+@if (sharedPrompt()) {
+  <app-shared-link-dialog
+    [summary]="sharedSummary()"
+    [atLimit]="projects.atLimit()"
+    (confirmed)="incoming.accept()"
+    (cancelled)="incoming.decline()"
   />
 }

@@ -32,3 +32,23 @@ Append new entries at the bottom, dated.
 - Tap vs drag is decided by a pure tap detector (one pointer, <= 8 px, <= 500 ms). A raycast runs once per tap against the tagged meshes only, never in the render loop.
 - The selection and Colour mode are non-persisted UI state (`ColouringState`). The Surfaces tab surface list is the keyboard/screen-reader equivalent of tapping.
 - Storage key `parket.design.v3`; v2 and v1 are read-only migration sources. Reset keeps the plan but strips its colour overrides; undo conventions are unchanged.
+
+## 2026-10-23 - Share by link and multiple projects (plan: `docs/plans/share-and-projects.md`, pending approval)
+
+- Projects are stored as an index key `parket.projects.v1` (`activeId` + metadata list) plus one key per project, `parket.project.<id>`, holding a `Design`. Ids are `p` + 8 random base36 chars. Max 50 projects. The index and every project are sanitised as hostile input; orphan keys are swept at startup.
+- Migration: with no index, the legacy design (v3 → v2 → v1) becomes the first project; legacy keys stay read-only and unwritten. Without storage the app runs on one in-memory project.
+- Writes: the project key first, then the index; roll back the project key if the index write fails. A failed autosave shows one error toast and keeps the in-memory design.
+- `DesignState` stays the single owner of the active design (setters, debounce, flush) and now persists to the active project key. `DesignState.open(id, design)` is the only way to switch (flush, replace, clear reset undo). `ProjectIndex` (index I/O) and `Projects` (operations, delete undo) are separate root services; no injection cycle.
+- Reset/Undo apply to the active project only. Delete has its own in-memory Undo (toast) and frees storage immediately.
+- Share link: `<baseURI>#s=1.<base64url(deflate-raw(JSON {n, d}))>`, pointing at the site root (HTTP 200 on Pages). The payload is versioned by the leading number. It uses the browser `CompressionStream`, with no dependency. Encoder limit 8000 chars; decoder caps 16 000 input chars and 64 KB inflated output, then `sanitizeDesign`.
+- A root-route guard redirects `#s=` links to `/designer` keeping the fragment; the designer reads `location.hash`, asks before adding the design as a NEW project, then clears the hash with `history.replaceState`. A shared design never overwrites an existing project.
+- Share uses `navigator.share` on coarse-pointer devices, otherwise the clipboard plus a toast, with a read-only link dialog as the last fallback.
+
+## 2026-10-23 - Dock + tray redesign (plan: `docs/plans/dock-redesign.md`, pending approval)
+
+- The 3D canvas is always full-screen behind all chrome and resizes only with the window. The room is framed in the uncovered rectangle with `PerspectiveCamera.setViewOffset` driven by measured frame insets (`ViewFrame` service, `FloorSceneApi.setFrame`); presets use the frame aspect. Picking is unchanged; the PNG export clears the offset. Fallback if the spike fails: resize the stage to the insets as before.
+- Shell state is one open section or none (`SectionId | null`), not persisted. The bottom sheet with Peek/Half/Full and the ARIA tab list are removed.
+- The dock (phone) / rail (desktop) is one `role="toolbar"` of disclosure buttons (`aria-expanded`, `aria-controls` the single tray region), not an ARIA tabs widget.
+- Colour mode is removed: picking in 3D is on exactly while the Colour section is open (`ColouringState.colourOpen`).
+- Reset lives in the Projects dialog row menu (current project only).
+- The compact 0.8x phone scale stays (user decision); new dock/tray tokens are scaled in `_phone-scale.scss`.

@@ -10,8 +10,24 @@
         stroke-linejoin="round"
       />
     </svg>
-    Parket
+    <span class="back-label">Parket</span>
   </a>
+  <button
+    type="button"
+    class="btn chip projects-chip"
+    data-trigger="projects"
+    aria-haspopup="dialog"
+    [attr.aria-label]="'Projects, current: ' + projectName()"
+    (click)="projects.emit()"
+  >
+    <svg class="icon glyph" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M8 2 14 5.25 8 8.5 2 5.25ZM2 8.25 8 11.5 14 8.25M2 11.25 8 14.5 14 11.25" />
+    </svg>
+    <span class="project-name">{{ projectName() }}</span>
+    <svg class="icon glyph chevron" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M4 6.25 8 10.25 12 6.25" />
+    </svg>
+  </button>
   <span class="spacer"></span>
 
   <div class="group inline" role="group" aria-label="Views">
@@ -139,6 +155,28 @@
       </div>
     }
   </div>
+
+  <button
+    type="button"
+    class="btn chip share-chip"
+    data-trigger="share"
+    aria-label="Share link"
+    [attr.aria-disabled]="shareLink.busy()"
+    [attr.aria-busy]="shareLink.busy()"
+    (click)="share()"
+  >
+    @if (shareLink.busy()) {
+      <span class="spinner" aria-hidden="true"></span>
+    } @else {
+      <svg class="icon glyph" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="12" cy="3.5" r="2" />
+        <circle cx="4" cy="8" r="2" />
+        <circle cx="12" cy="12.5" r="2" />
+        <path d="M5.8 7 10.2 4.5M5.8 9 10.2 11.5" />
+      </svg>
+    }
+    <span class="share-label">Share</span>
+  </button>
 
   <button
     type="button"

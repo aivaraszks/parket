@@ -177,6 +177,38 @@
   --dur-cta-in: 0.6s;
   --delay-cta: 3.6s;
 
+  // Landing "Continue" (docs/design/components/projects.md, "Landing: Continue")
+  --cta-primary-bg: var(--accent); // filled gold pill: text-on-accent 8.5:1, opaque
+  --cta-primary-bg-hover: var(--accent-hover);
+  --cta-primary-bg-active: var(--accent-active);
+  --cta-primary-text: var(--text-on-accent);
+  --cta-actions-gap: var(--space-3); // between the two pills, stacked or side by side
+  --cta-tracking-compact: 0.12em; // side-by-side pills only
+  --cta-pad-x-compact: 1.25rem; // side-by-side pills only
+  --cta-name-max: 14rem; // project name inside the Continue pill, then an ellipsis
+  --cta-meta-color: var(--color-text-on-floor); // "3 projects on this device"
+  --veil-cta: rgb(28 14 5 / 0.7); // local dark pool behind the CTA block (count line contrast)
+  // Space the .cta block needs below its top edge (kicker + pills + count line), used in
+  // top: min(calc(50% + max(6rem, 14vh)), calc(100dvh - var(--cta-reserve) - safe-area))
+  --cta-reserve: 6.5rem; // no summary: kicker + one pill (unchanged)
+  --cta-reserve-stacked: 11.5rem; // summary, below 560px: kicker, 2 pills, count
+  --cta-reserve-row: 8rem; // summary, from 560px: kicker, pills side by side, count
+  --cta-reserve-landscape: 4rem; // max-height 480px: pills in a row, no kicker, no count
+
+  // Projects and sharing (docs/design/components/projects.md).
+  // Sizes are base rem: components use calc(var(--x) * var(--ui-scale)) for the phone scale.
+  --project-chip-name-max: 12ch; // toolbar chip name, then an ellipsis (20ch from 900px)
+  --projects-dialog-w: 26.25rem; // desktop dialog, 420px; capped to the viewport
+  --projects-sheet-max-h: 80dvh; // phone bottom sheet; the list scrolls
+  --project-row-h: 3.25rem; // two-line row (name, edited line); never below --target-min
+  --project-row-hover: var(--field-bg-hover);
+  --project-row-current-bg: rgb(224 168 90 / 0.14); // accent tint; text on it 6.3:1 or more
+  --project-current-bar-w: 0.1875rem; // left bar on the current row (with check + "Current")
+  --icon-size: 1rem; // 16px line icons (Projects, Share, chevron, More, check)
+  --icon-stroke: 1.5; // SVG stroke-width in a 16 unit viewBox
+  --menu-min-w: 11rem;
+  --link-field-h: var(--target-min); // read-only link field in the share fallback dialog
+
   // ---------------------------------------------------------------
   // Plan editor (docs/design/design-system.md, "Plan editor")
   // SVG sizes are screen sizes: draw with vector-effect: non-scaling-stroke
@@ -245,7 +277,14 @@
   --z-plan: 35;
 }
 
+@media (min-width: 900px) {
+  :root {
+    --project-chip-name-max: 20ch;
+  }
+}
+
 // Breakpoints (media queries cannot read custom properties; keep in sync):
+//   side-by-side landing pills: min-width 560px (and any max-height 480px landscape)
 //   phone -> desktop panel: min-width 900px
 //   landscape phone side panel: min-width 700px and max-height 499px
 

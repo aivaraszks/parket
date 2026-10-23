@@ -5,6 +5,7 @@ import { rectangleToPlan } from '../plan/plan-edit';
 import { L_SHAPE, planFromPoints } from '../plan/plan-fixtures';
 import { validatePlan } from '../plan/plan-validate';
 import { DEFAULT_DESIGN, STORAGE_KEY, STORAGE_KEY_V1 } from './design-defaults';
+import { activeProject } from './storage-fixtures';
 import { DesignState } from './design-state';
 
 function create(): DesignState {
@@ -92,10 +93,10 @@ describe('v1 to v2 migration with real-looking blobs', () => {
     s.setMode('custom');
     s.flush();
     expect(localStorage.getItem(STORAGE_KEY_V1)).toBe(text);
-    const v2 = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const v2 = activeProject();
     expect(v2.mode).toBe('custom');
     expect(v2.room.length).toBe(6.4);
-    expect(v2.plan.rooms).toHaveLength(1);
+    expect(v2.plan!.rooms).toHaveLength(1);
   });
 
   it('survives a second load: v2 is now the source and mode and plan round-trip', () => {
@@ -114,7 +115,9 @@ describe('v1 to v2 migration with real-looking blobs', () => {
     localStorage.setItem(STORAGE_KEY_V1, JSON.stringify(V1_BLOB));
     localStorage.setItem(STORAGE_KEY, '{"mode": "custom", "plan": {');
     expect(create().simpleRoom().length).toBe(6.4);
+    localStorage.clear();
     localStorage.setItem(STORAGE_KEY_V1, '%%%');
+    localStorage.setItem(STORAGE_KEY, '{"mode": "custom", "plan": {');
     expect(create().simpleRoom()).toEqual(DEFAULT_DESIGN.room);
   });
 });
@@ -130,6 +133,7 @@ describe('hostile stored plans', () => {
   });
 
   const store = (blob: unknown): DesignState => {
+    localStorage.clear();
     localStorage.setItem(STORAGE_KEY, typeof blob === 'string' ? blob : JSON.stringify(blob));
     return create();
   };

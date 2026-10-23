@@ -9,6 +9,7 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { trapTab } from './dialog-focus';
 
 /** Alert dialog: really change every wall colour? Focus starts on Cancel (the safe answer). */
 @Component({
@@ -38,7 +39,7 @@ import {
   // On the document, so Escape and Tab keep working even if focus ended up outside the dialog.
   host: {
     '(document:keydown.escape)': 'cancelled.emit()',
-    '(document:keydown.tab)': 'trap($event)',
+    '(document:keydown)': 'onKey($event)',
     '(document:focusin)': 'pullBack($event)',
   },
 })
@@ -70,26 +71,10 @@ export class ColourConfirmDialog {
     }
   }
 
-  /** Keep Tab inside the dialog. */
-  protected trap(event: Event): void {
-    const keyboard = event as KeyboardEvent;
-    const items = Array.from(this.host.nativeElement.querySelectorAll<HTMLElement>('button'));
-    const first = items[0];
-    const last = items[items.length - 1];
-    const active = this.document.activeElement;
-    if (
-      !active ||
-      !this.host.nativeElement.contains(active) ||
-      active === this.dialog().nativeElement
-    ) {
-      keyboard.preventDefault();
-      first.focus();
-    } else if (keyboard.shiftKey && active === first) {
-      keyboard.preventDefault();
-      last.focus();
-    } else if (!keyboard.shiftKey && active === last) {
-      keyboard.preventDefault();
-      first.focus();
+  /** Keep Tab and Shift+Tab inside the dialog. */
+  protected onKey(event: Event): void {
+    if ((event as KeyboardEvent).key === 'Tab') {
+      trapTab(event, this.host.nativeElement, this.document, this.dialog().nativeElement);
     }
   }
 }

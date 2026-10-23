@@ -1,6 +1,7 @@
-import { Component, computed, ElementRef, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, inject, output, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ColouringState } from '../state/colouring-state';
+import { ShareLink } from '../share/share-link';
 import { SceneCommands, ViewPreset } from '../scene/scene-commands';
 import { ColourAnnouncer } from './colour-announcer';
 import { ImageExport } from './image-export';
@@ -13,7 +14,7 @@ const PRESETS: readonly { id: ViewPreset; label: string; sub: string }[] = [
   { id: 'top', label: 'Top-down', sub: 'Straight down on the pattern' },
 ];
 
-/** Top bar over the view: back link, view presets and zoom, help, Save image. */
+/** Top bar over the view: back link, projects, view presets and zoom, help, Share, Save image. */
 @Component({
   selector: 'app-view-toolbar',
   imports: [RouterLink],
@@ -29,9 +30,14 @@ export class ViewToolbar {
   protected readonly exporter = inject(ImageExport);
   private readonly announcer = inject(ColourAnnouncer);
   protected readonly colouring = inject(ColouringState);
+  protected readonly shareLink = inject(ShareLink);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
+  /** The Projects chip was pressed: the designer opens the dialog. */
+  readonly projects = output<void>();
+
   protected readonly presets = PRESETS;
+  protected readonly projectName = computed(() => this.shareLink.projectName());
   protected readonly open = signal<Popover>(null);
   protected readonly unavailable = computed(() => this.scene.status() !== 'ready');
   protected readonly saveTitle = computed(() => (this.unavailable() ? 'Needs 3D view' : null));
@@ -94,6 +100,12 @@ export class ViewToolbar {
   protected save(): void {
     if (!this.unavailable() && !this.exporter.busy()) {
       void this.exporter.save();
+    }
+  }
+
+  protected share(): void {
+    if (!this.shareLink.busy()) {
+      void this.shareLink.share();
     }
   }
 

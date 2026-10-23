@@ -1,0 +1,296 @@
+@use './shared';
+
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: grid;
+  align-items: end;
+  font-family: var(--font-ui);
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-scrim);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  position: relative;
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: var(--projects-sheet-max-h);
+  padding: var(--space-4) var(--space-4) max(var(--space-4), env(safe-area-inset-bottom));
+  background: var(--surface-dialog);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-dialog);
+  color: var(--text-primary);
+  animation: sheet-in var(--dur-sheet) var(--ease-out);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (min-width: 600px) {
+  :host {
+    place-items: center;
+    padding: var(--space-4);
+  }
+
+  .dialog {
+    width: min(100%, var(--projects-dialog-w));
+    max-height: min(100%, 36rem);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    animation: dialog-in var(--dur-base) var(--ease-out);
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+}
+
+.icon {
+  flex: none;
+  width: calc(var(--icon-size) * var(--ui-scale));
+  height: calc(var(--icon-size) * var(--ui-scale));
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.btn {
+  @include shared.button;
+}
+
+.close {
+  width: var(--target-min);
+  padding: 0;
+}
+
+.count {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.new {
+  width: 100%;
+  margin: var(--space-4) 0;
+}
+
+.hint {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: var(--space-2) var(--space-1) var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  list-style: none;
+  border-top: 1px solid var(--surface-hairline);
+}
+
+.item-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+
+  &.current {
+    background: var(--project-row-current-bg);
+    box-shadow: inset var(--project-current-bar-w) 0 0 var(--accent);
+
+    @media (forced-colors: active) {
+      box-shadow: inset var(--project-current-bar-w) 0 0 Highlight;
+    }
+  }
+}
+
+.row {
+  @include shared.colour-transition;
+  flex: 1;
+  min-width: 0;
+  min-height: max(var(--target-min), calc(var(--project-row-h) * var(--ui-scale)));
+  display: grid;
+  align-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--project-row-hover);
+  }
+
+  &:active {
+    background: var(--field-bg);
+  }
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+  font-weight: var(--weight-medium);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.check {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.current-word {
+  color: var(--text-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.more {
+  width: var(--target-min);
+  min-height: max(var(--target-min), calc(var(--project-row-h) * var(--ui-scale)));
+  padding: 0;
+  color: var(--text-muted);
+
+  &[aria-expanded='true'] {
+    background: var(--field-bg-hover);
+    color: var(--text-primary);
+  }
+}
+
+.dots {
+  fill: currentColor;
+  stroke: none;
+}
+
+.rename {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+
+  small {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+}
+
+.field {
+  @include shared.field;
+  width: 100%;
+}
+
+// Fixed (placed from the More button) and outside the scrolling list, so the list never clips it;
+// inside the dialog element so it is part of the dialog landmark.
+.menu {
+  position: fixed;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: calc(var(--menu-min-w) * var(--ui-scale));
+  max-width: calc(100% - 2 * var(--space-3));
+  padding: var(--space-2);
+  background: var(--surface-raised);
+  border: 1px solid var(--surface-hairline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-toast);
+}
+
+.item {
+  @include shared.colour-transition;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font: var(--weight-medium) var(--text-sm) / var(--leading-tight) var(--font-ui);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--field-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-ring-color);
+    outline-offset: -2px;
+    box-shadow: none;
+  }
+
+  &[aria-disabled='true'] {
+    opacity: var(--disabled-opacity);
+    cursor: not-allowed;
+  }
+
+  small {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  &.danger {
+    margin-top: var(--space-1);
+    border-top: 1px solid var(--surface-hairline);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    color: var(--text-error);
+  }
+}

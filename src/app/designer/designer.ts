@@ -11,13 +11,20 @@ import {
   untracked,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { RouterOutlet } from '@angular/router';
+import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
+import { IncomingShare } from './share/incoming-share';
+import { ShareLink } from './share/share-link';
 import { ColouringState } from './state/colouring-state';
 import { DesignState } from './state/design-state';
+import { Projects } from './state/projects';
+import { ProjectIndex } from './state/project-index';
 import { SceneCommands } from './scene/scene-commands';
 import { ColourAnnouncer } from './ui/colour-announcer';
 import { ColourConfirm } from './ui/colour-confirm';
 import { ColourConfirmDialog } from './ui/colour-confirm-dialog';
+import { ProjectsDialog } from './ui/projects-dialog';
+import { ShareFallbackDialog } from './ui/share-fallback-dialog';
+import { describeShared, SharedLinkDialog } from './ui/shared-link-dialog';
 import { ControlsSheet, SheetStop, TabId } from './ui/controls-sheet';
 import { consumeFirstVisit } from './ui/first-visit';
 import { EditorLoader } from './ui/editor-loader';
@@ -46,10 +53,16 @@ const MOUSE_HINT = 'Drag to look around. Scroll to zoom. Right-drag to move.';
     RouterOutlet,
     EditorLoader,
     ColourConfirmDialog,
+    ProjectsDialog,
+    ShareFallbackDialog,
+    SharedLinkDialog,
   ],
   templateUrl: './designer.html',
   styleUrl: './designer.scss',
-  host: { '[class]': '"stop-" + stop()' },
+  host: {
+    '[class]': '"stop-" + stop()',
+    '(window:hashchange)': 'incoming.read()',
+  },
 })
 export class Designer {
   private readonly scene = inject(SceneCommands);
@@ -59,13 +72,42 @@ export class Designer {
   private readonly design = inject(DesignState);
   protected readonly confirm = inject(ColourConfirm);
   protected readonly announcer = inject(ColourAnnouncer);
+  protected readonly incoming = inject(IncomingShare);
+  protected readonly shareLink = inject(ShareLink);
+  protected readonly projects = inject(Projects);
+  private readonly index = inject(ProjectIndex);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
 
   protected readonly stop = signal<SheetStop>('peek');
   protected readonly tab = signal<TabId>('room');
   /** The shape editor (child route) is open: the designer underneath is inert. */
   protected readonly editorOpen = signal(false);
-  /** The editor or the colour confirm is open: everything underneath is inert. */
-  protected readonly covered = computed(() => this.editorOpen() || this.confirm.pending() !== null);
+  protected readonly projectsOpen = signal(false);
+  /** The shared-link prompt waits while the plan editor or any other dialog is open (two dialogs would fight over focus). */
+  protected readonly sharedPrompt = computed(() =>
+    this.editorOpen() ||
+    this.projectsOpen() ||
+    this.confirm.pending() !== null ||
+    this.shareLink.fallbackUrl() !== null ||
+    this.exporter.fallbackUrl() !== null
+      ? null
+      : this.incoming.pending(),
+  );
+  protected readonly sharedSummary = computed(() => {
+    const prompt = this.sharedPrompt();
+    return prompt ? describeShared(prompt.name, prompt.design) : '';
+  });
+  /** A dialog over the designer (not the editor): everything underneath is inert. */
+  protected readonly dialogOpen = computed(
+    () =>
+      this.confirm.pending() !== null ||
+      this.projectsOpen() ||
+      this.shareLink.fallbackUrl() !== null ||
+      this.sharedPrompt() !== null,
+  );
+  /** The editor or a dialog is open: everything underneath is inert. */
+  protected readonly covered = computed(() => this.editorOpen() || this.dialogOpen());
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -80,12 +122,16 @@ export class Designer {
       title.setTitle(previousTitle || 'Parket');
       this.toasts.dismiss();
       this.exporter.closeFallback();
+      this.shareLink.closeFallback();
       // Colour mode is off on every visit.
       this.confirm.cancel();
       this.colouring.setActive(false);
       this.colouring.setSurfacesOpen(false);
       this.announcer.say('');
     });
+
+    this.startNewProject();
+    void this.incoming.read();
 
     if (consumeFirstVisit()) {
       this.stop.set('half');
@@ -155,6 +201,37 @@ export class Designer {
         });
       }
     });
+  }
+
+  /** "Design your floor" on the landing page opens `?new=1`: start a project and drop the query. */
+  private startNewProject(): void {
+    if (this.route.snapshot.queryParamMap.get('new') !== '1') {
+      return;
+    }
+    // An untouched "Project N" is reused, so repeated taps do not fill the list with empty projects.
+    if (!this.projects.isActiveUntouched()) {
+      const result = this.projects.create();
+      if (result.ok) {
+        const name = this.projectName(result.id);
+        this.toasts.show(`Created “${name}”.`);
+        this.announcer.say(`Opened ${name}.`);
+      } else if (result.reason === 'limit') {
+        const text = `Limit reached. Opened “${this.projectName(this.index.activeId())}”. Delete a project to add more.`;
+        this.toasts.show(text, { kind: 'error' });
+        this.announcer.say(text);
+      }
+    }
+    // So a reload does not create another one.
+    void this.router.navigate([], {
+      queryParams: { new: null },
+      queryParamsHandling: 'merge',
+      preserveFragment: true,
+      replaceUrl: true,
+    });
+  }
+
+  private projectName(id: string): string {
+    return this.index.projects().find((p) => p.id === id)?.name ?? '';
   }
 
   /** Opens the sheet on the Surfaces tab, at Half if it was peeking. */

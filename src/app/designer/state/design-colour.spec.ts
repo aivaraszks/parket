@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rectangleToPlan } from '../plan/plan-edit';
 import { DEFAULT_DESIGN, STORAGE_KEY, STORAGE_KEY_V2 } from './design-defaults';
+import { activeProject } from './storage-fixtures';
 import { DesignState, sanitizeDesign } from './design-state';
 
 function create(): DesignState {
@@ -65,7 +66,7 @@ describe('storage v3', () => {
     s.setAngle(30);
     s.flush();
     expect(localStorage.getItem(STORAGE_KEY_V2)).toBe(text);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).angle).toBe(30);
+    expect(activeProject().angle).toBe(30);
   });
 
   it('v3 wins over v2', () => {

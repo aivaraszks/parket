@@ -16,9 +16,19 @@
     </h1>
     <span class="rule" aria-hidden="true"></span>
   </div>
-  <div class="cta" [class.revealed]="ctaRevealed()">
+  <div class="cta" [class.revealed]="ctaRevealed()" [class.has-summary]="summary !== null">
     <p class="kicker" aria-hidden="true">Herringbone, in 3D</p>
-    <a class="pill" routerLink="/designer">Design your floor</a>
+    @if (summary; as s) {
+      <div class="actions">
+        <a class="pill primary" routerLink="/designer">
+          Continue: <span class="name">{{ s.activeName }}</span>
+        </a>
+        <a class="pill" routerLink="/designer" [queryParams]="{ new: 1 }">Design your floor</a>
+      </div>
+      <p class="meta">{{ projectCount }}</p>
+    } @else {
+      <a class="pill" routerLink="/designer">Design your floor</a>
+    }
   </div>
 </main>
-<div class="grain" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true" [style.--grain-image]="grainImage"></div>

@@ -1,7 +1,12 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
+import { IncomingDesign, IncomingShare } from './share/incoming-share';
+import { ShareLink } from './share/share-link';
+import { ProjectIndex } from './state/project-index';
+import { Projects } from './state/projects';
+import { DEFAULT_DESIGN } from './state/design-defaults';
 import { DesignState } from './state/design-state';
 import { Designer } from './designer';
 import { SceneCommands } from './scene/scene-commands';
@@ -317,6 +322,175 @@ describe('Designer', () => {
       withPointer(false);
       await setup();
       expect(TestBed.inject(Toasts).current()?.text).toContain('Scroll to zoom');
+    });
+  });
+
+  describe('projects and sharing', () => {
+    const pending = signal<IncomingDesign | null>(null);
+    const incoming = {
+      pending,
+      read: vi.fn(),
+      accept: vi.fn(),
+      decline: vi.fn(),
+    };
+    const fallbackUrl = signal<string | null>(null);
+    const shareLink = {
+      fallbackUrl,
+      busy: signal(false),
+      share: vi.fn(),
+      projectName: () => 'Kitchen',
+      closeFallback: vi.fn(() => fallbackUrl.set(null)),
+    };
+
+    beforeEach(() => {
+      pending.set(null);
+      fallbackUrl.set(null);
+      incoming.read.mockReset().mockResolvedValue(undefined);
+      incoming.accept.mockReset();
+      incoming.decline.mockReset();
+      TestBed.resetTestingModule();
+      localStorage.clear();
+      localStorage.setItem('parket.visited.v1', '1');
+      TestBed.configureTestingModule({
+        providers: [
+          provideRouter([
+            {
+              path: 'designer',
+              component: Designer,
+              children: [{ path: 'plan', component: StubEditor }],
+            },
+          ]),
+          { provide: SceneCommands, useValue: scene },
+          { provide: IncomingShare, useValue: incoming },
+          { provide: ShareLink, useValue: shareLink },
+        ],
+      });
+      TestBed.overrideComponent(Designer, {
+        remove: { imports: [Viewport] },
+        add: { imports: [StubViewport] },
+      });
+    });
+
+    it('opens the Projects dialog from the chip, makes the page inert and closes it again', async () => {
+      const { fixture, el } = await setup();
+      const chip = el.querySelector<HTMLElement>('[data-trigger="projects"]')!;
+      chip.click();
+      await fixture.whenStable();
+      expect(el.querySelector('app-projects-dialog [role=dialog]')).not.toBeNull();
+      expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('app-controls-sheet')!.hasAttribute('inert')).toBe(true);
+      expect(el.querySelector('app-toast-host')!.hasAttribute('inert')).toBe(true);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await fixture.whenStable();
+      expect(el.querySelector('app-projects-dialog')).toBeNull();
+      expect(el.querySelector('main')!.hasAttribute('inert')).toBe(false);
+    });
+
+    it('reads a link in the address bar on init', async () => {
+      await setup();
+      expect(incoming.read).toHaveBeenCalled();
+    });
+
+    it('asks before adding a shared design, then accepts or declines', async () => {
+      const { fixture, el } = await setup();
+      pending.set({ name: 'Kitchen', design: DEFAULT_DESIGN });
+      await fixture.whenStable();
+      const dialog = el.querySelector('[role=alertdialog]')!;
+      expect(dialog.textContent).toContain('Open shared design?');
+      expect(dialog.textContent).toContain('“Kitchen”, simple room,');
+      expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
+      const buttons = dialog.querySelectorAll<HTMLElement>('button');
+      buttons[1].click();
+      expect(incoming.accept).toHaveBeenCalledTimes(1);
+      buttons[0].click();
+      expect(incoming.decline).toHaveBeenCalledTimes(1);
+    });
+
+    it('holds the shared-link prompt back while the plan editor is open', async () => {
+      TestBed.inject(DesignState).setMode('custom');
+      const harness = await RouterTestingHarness.create('/designer/plan');
+      const el = harness.fixture.nativeElement as HTMLElement;
+      pending.set({ name: null, design: DEFAULT_DESIGN });
+      harness.fixture.detectChanges();
+      expect(el.querySelector('app-stub-editor')).not.toBeNull();
+      expect(el.querySelector('[role=alertdialog]')).toBeNull();
+
+      await harness.navigateByUrl('/designer');
+      harness.fixture.detectChanges();
+      await harness.fixture.whenStable();
+      expect(el.querySelector('[role=alertdialog]')).not.toBeNull();
+    });
+
+    it('shows the share fallback dialog when the clipboard fails', async () => {
+      const { fixture, el } = await setup();
+      fallbackUrl.set('https://example.test/#s=1.x');
+      await fixture.whenStable();
+      const dialog = el.querySelector('app-share-fallback-dialog [role=dialog]')!;
+      expect(dialog.textContent).toContain('Copy this link to share Kitchen.');
+      expect(el.querySelector('main')!.hasAttribute('inert')).toBe(true);
+      dialog.querySelector<HTMLElement>('.btn')!.click();
+      expect(shareLink.closeFallback).toHaveBeenCalled();
+    });
+
+    it('?new=1 creates one project and removes the query', async () => {
+      TestBed.inject(DesignState).setAngle(30);
+      const harness = await RouterTestingHarness.create('/designer?new=1');
+      harness.fixture.detectChanges();
+      await harness.fixture.whenStable();
+      const names = TestBed.inject(ProjectIndex)
+        .projects()
+        .map((p) => p.name);
+      expect(names.length).toBe(2);
+      expect(names[1]).toMatch(/^Project \d+$/);
+      expect(TestBed.inject(Toasts).current()?.text).toBe(`Created “${names[1]}”.`);
+      expect(TestBed.inject(Router).url).toBe('/designer');
+    });
+
+    it('?new=1 reuses an untouched active project', async () => {
+      const harness = await RouterTestingHarness.create('/designer?new=1');
+      harness.fixture.detectChanges();
+      await harness.fixture.whenStable();
+      expect(TestBed.inject(ProjectIndex).projects().length).toBe(1);
+      expect(TestBed.inject(Router).url).toBe('/designer');
+    });
+
+    it('?new=1 at the limit shows an error naming the opened project', async () => {
+      TestBed.inject(DesignState).setAngle(30);
+      const projects = TestBed.inject(Projects);
+      while (!projects.atLimit()) {
+        projects.create();
+      }
+      const active = TestBed.inject(ProjectIndex).activeId();
+      const name = TestBed.inject(ProjectIndex)
+        .projects()
+        .find((p) => p.id === active)!.name;
+      TestBed.inject(DesignState).setAngle(31);
+      const harness = await RouterTestingHarness.create('/designer?new=1');
+      harness.fixture.detectChanges();
+      await harness.fixture.whenStable();
+      const toast = TestBed.inject(Toasts).current();
+      expect(toast?.kind).toBe('error');
+      expect(toast?.text).toBe(`Limit reached. Opened “${name}”. Delete a project to add more.`);
+    });
+
+    it('holds the shared-link prompt back while the Projects dialog is open', async () => {
+      const { fixture, el } = await setup();
+      el.querySelector<HTMLElement>('[data-trigger="projects"]')!.click();
+      await fixture.whenStable();
+      pending.set({ name: 'Kitchen', design: DEFAULT_DESIGN });
+      await fixture.whenStable();
+      expect(el.querySelector('app-projects-dialog')).not.toBeNull();
+      expect(el.querySelector('[role=alertdialog]')).toBeNull();
+      el.querySelector<HTMLElement>('app-projects-dialog .close')!.click();
+      await fixture.whenStable();
+      expect(el.querySelector('[role=alertdialog]')).not.toBeNull();
+    });
+
+    it('opens with no query: no project is created', async () => {
+      const harness = await RouterTestingHarness.create('/designer');
+      harness.fixture.detectChanges();
+      expect(TestBed.inject(ProjectIndex).projects().length).toBe(1);
     });
   });
 });

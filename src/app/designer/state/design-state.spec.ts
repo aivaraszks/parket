@@ -7,6 +7,8 @@ import {
   PERSIST_DEBOUNCE_MS,
   STORAGE_KEY,
 } from './design-defaults';
+import { PROJECT_KEY_PREFIX } from './project-meta';
+import { activeProject } from './storage-fixtures';
 import { DesignState, sanitizeDesign } from './design-state';
 import { rectangleToPlan } from '../plan/plan-edit';
 import { STORAGE_KEY_V1 } from './design-defaults';
@@ -147,7 +149,7 @@ describe('DesignState', () => {
     s.setPlanksPerBlock(4);
     expect(s.placementsKey()).not.toBe(key);
     s.flush();
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).planksPerBlock).toBe(4);
+    expect(activeProject().planksPerBlock).toBe(4);
     expect(create().planksPerBlock()).toBe(4);
   });
 
@@ -189,11 +191,11 @@ describe('DesignState', () => {
     s.setAngle(33);
     s.setSpecies('walnut');
     s.setSun({ on: false });
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(activeProject().room.length).toBe(5);
     vi.advanceTimersByTime(PERSIST_DEBOUNCE_MS - 1);
-    expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    expect(activeProject().room.length).toBe(5);
     vi.advanceTimersByTime(1);
-    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+    expect(activeProject().room.length).toBe(7.25);
 
     const restored = create();
     expect(restored.simpleRoom().length).toBe(7.25);
@@ -207,7 +209,8 @@ describe('DesignState', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem');
     for (let i = 0; i < 50; i++) s.setAngle(i);
     vi.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
-    expect(spy).toHaveBeenCalledTimes(1);
+    const projectWrites = spy.mock.calls.filter(([key]) => key.startsWith(PROJECT_KEY_PREFIX));
+    expect(projectWrites).toHaveLength(1);
     spy.mockRestore();
   });
 
@@ -215,7 +218,7 @@ describe('DesignState', () => {
     const s = create();
     s.setAngle(12);
     s.flush();
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).angle).toBe(12);
+    expect(activeProject().angle).toBe(12);
   });
 
   it('falls back to defaults on corrupt storage', () => {
@@ -375,10 +378,10 @@ describe('DesignState', () => {
       s.setAngle(80);
       s.reset();
       vi.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).angle).toBe(0);
+      expect(activeProject().angle).toBe(0);
       s.undo();
       vi.advanceTimersByTime(PERSIST_DEBOUNCE_MS);
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).angle).toBe(80);
+      expect(activeProject().angle).toBe(80);
     });
 
     it('drops the buffer on dismiss or a new edit', () => {
@@ -412,9 +415,9 @@ describe('sanitizeDesign', () => {
     it('flushes on pagehide', () => {
       const s = create();
       s.setRoomLength(7);
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(activeProject().room.length).toBe(5);
       window.dispatchEvent(new Event('pagehide'));
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).room.length).toBe(7);
+      expect(activeProject().room.length).toBe(7);
     });
 
     it('flushes when the page becomes hidden, not when visible', () => {
@@ -423,10 +426,10 @@ describe('sanitizeDesign', () => {
       s.setRoomLength(8);
       state.mockReturnValue('visible');
       document.dispatchEvent(new Event('visibilitychange'));
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(activeProject().room.length).toBe(5);
       state.mockReturnValue('hidden');
       document.dispatchEvent(new Event('visibilitychange'));
-      expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).room.length).toBe(8);
+      expect(activeProject().room.length).toBe(8);
       state.mockRestore();
     });
 
@@ -436,7 +439,7 @@ describe('sanitizeDesign', () => {
       localStorage.clear();
       s.setRoomLength(9);
       window.dispatchEvent(new Event('pagehide'));
-      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+      expect(localStorage.length).toBe(0);
     });
   });
 });
@@ -576,7 +579,7 @@ describe('custom room state (v2)', () => {
     const s = create();
     s.setMode('custom');
     s.flush();
-    expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+    expect(activeProject().mode).toBe('custom');
     const r = create();
     expect(r.mode()).toBe('custom');
     expect(r.plan()).toEqual(s.plan());
@@ -597,7 +600,7 @@ describe('custom room state (v2)', () => {
     s.setAngle(50);
     s.flush();
     expect(localStorage.getItem(STORAGE_KEY_V1)).toBe(v1);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).angle).toBe(50);
+    expect(activeProject().angle).toBe(50);
   });
 
   it('v2 wins over v1', () => {

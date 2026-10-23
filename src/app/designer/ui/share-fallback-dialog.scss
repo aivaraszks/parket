@@ -1,0 +1,22 @@
+@use './shared';
+
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+}
+
+.link {
+  @include shared.field;
+  height: var(--link-field-h);
+  width: 100%;
+  font-size: var(--text-input);
+  text-overflow: ellipsis;
+  user-select: all;
+}

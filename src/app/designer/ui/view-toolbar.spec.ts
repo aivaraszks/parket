@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SceneCommands } from '../scene/scene-commands';
 import { ColouringState } from '../state/colouring-state';
+import { ShareLink } from '../share/share-link';
 import { ImageExport } from './image-export';
 import { ViewToolbar } from './view-toolbar';
 
@@ -12,6 +13,8 @@ describe('ViewToolbar', () => {
   const scene = { setPreset: vi.fn(), zoom: vi.fn(), exportPng: vi.fn(), status };
   const busy = signal(false);
   const exporter = { busy, save: vi.fn() };
+  const shareBusy = signal(false);
+  const shareLink = { busy: shareBusy, share: vi.fn(), projectName: () => 'Kitchen' };
 
   beforeEach(() => {
     status.set('ready');
@@ -19,12 +22,15 @@ describe('ViewToolbar', () => {
     scene.setPreset.mockReset();
     scene.zoom.mockReset();
     exporter.save.mockReset();
+    shareBusy.set(false);
+    shareLink.share.mockReset().mockResolvedValue(undefined);
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
         { provide: SceneCommands, useValue: scene },
         { provide: ImageExport, useValue: exporter },
+        { provide: ShareLink, useValue: shareLink },
       ],
     });
   });
@@ -231,5 +237,54 @@ describe('ViewToolbar', () => {
   it('names the back link by its purpose', async () => {
     const { el } = await setup();
     expect(el.querySelector('a')?.getAttribute('aria-label')).toBe('Back to Parket home');
+  });
+  describe('Projects and Share chips', () => {
+    it('shows the active project name and opens the dialog request', async () => {
+      const { fixture, q } = await setup();
+      const opened = vi.fn();
+      fixture.componentInstance.projects.subscribe(opened);
+      const chip = q('[data-trigger="projects"]');
+      expect(chip.getAttribute('aria-label')).toBe('Projects, current: Kitchen');
+      expect(chip.getAttribute('aria-haspopup')).toBe('dialog');
+      expect(chip.textContent).toContain('Kitchen');
+      chip.click();
+      expect(opened).toHaveBeenCalledTimes(1);
+    });
+
+    it('puts the Projects chip right after Back and Share before Save image', async () => {
+      const { el } = await setup();
+      const buttons = Array.from(
+        el.querySelectorAll('.bar > a, .bar > button, .bar > div > button'),
+      );
+      const at = (sel: string) => buttons.indexOf(el.querySelector(sel)!);
+      expect(at('[data-trigger="projects"]')).toBe(1);
+      expect(at('[data-trigger="share"]')).toBeLessThan(at('.chip.primary'));
+    });
+
+    it('Share makes a link, and is busy and aria-disabled while it works', async () => {
+      const { fixture, q } = await setup();
+      const share = q('[data-trigger="share"]');
+      expect(share.getAttribute('aria-label')).toBe('Share link');
+      expect(share.textContent).toContain('Share');
+      share.click();
+      expect(shareLink.share).toHaveBeenCalledTimes(1);
+
+      shareBusy.set(true);
+      fixture.detectChanges();
+      expect(share.getAttribute('aria-busy')).toBe('true');
+      expect(share.getAttribute('aria-disabled')).toBe('true');
+      expect(share.querySelector('.spinner')).not.toBeNull();
+      share.click();
+      expect(shareLink.share).toHaveBeenCalledTimes(1);
+    });
+
+    it('Share still works when 3D is unavailable', async () => {
+      status.set('no-webgl');
+      const { q } = await setup();
+      const share = q('[data-trigger="share"]');
+      expect(share.getAttribute('aria-disabled')).toBe('false');
+      share.click();
+      expect(shareLink.share).toHaveBeenCalledTimes(1);
+    });
   });
 });

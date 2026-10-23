@@ -145,6 +145,10 @@ export const STORAGE_KEY_V2 = 'parket.design.v2';
 export const STORAGE_KEY_V1 = 'parket.design.v1';
 export const PERSIST_DEBOUNCE_MS = 300;
 
+// Multiple projects (plan P1): an index key plus one `parket.project.<id>` key per design.
+// The constants live in `project-meta.ts` (dependency-free, shared with the landing page).
+export { MAX_PROJECTS, PROJECT_KEY_PREFIX, PROJECTS_INDEX_KEY } from './project-meta';
+
 /** Clamp to [min, max] and snap to the step grid; non-finite input returns the fallback. */
 export function clampToLimit(value: unknown, limit: Limit, fallback: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {

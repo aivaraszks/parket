@@ -34,9 +34,21 @@ export const customModeOnly: CanActivateFn = () => {
   );
 };
 
+/**
+ * A shared link opens the site root (`#s=...`): send it to the designer, keeping the fragment.
+ * No designer imports here, so the landing bundle stays small.
+ */
+export const shareLinkRedirect: CanActivateFn = (route) => {
+  const fragment = route.fragment;
+  return fragment?.startsWith('s=')
+    ? inject(Router).createUrlTree(['/designer'], { fragment })
+    : true;
+};
+
 export const routes: Routes = [
   {
     path: '',
+    canActivate: [shareLinkRedirect],
     loadComponent: () => import('./landing/landing').then((m) => m.Landing),
   },
   {
