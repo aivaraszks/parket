@@ -14,6 +14,10 @@ function sameOutline(a: RoomShape['outline'], b: RoomShape['outline']): boolean 
   return a.length === b.length && a.every((p, i) => p.x === b[i].x && p.y === b[i].y);
 }
 
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
 function sameOpenings(a: RoomShape['openings'], b: RoomShape['openings']): boolean {
   return (
     a.length === b.length &&
@@ -37,8 +41,10 @@ export function diffRoom(prev: RoomShape | null, next: RoomShape): RoomChange {
   if (!prev) return { shell: true, mask: true, placements: true };
   const outline = !sameOutline(prev.outline, next.outline);
   const openings = !sameOpenings(prev.openings, next.openings);
+  // Wall ids key the per-wall materials, so a renamed wall needs a shell rebuild (not a floor one).
+  const ids = !sameIds(prev.wallIds, next.wallIds);
   return {
-    shell: outline || openings || prev.height !== next.height,
+    shell: outline || openings || ids || prev.height !== next.height,
     mask: outline || openings,
     placements: outline,
   };

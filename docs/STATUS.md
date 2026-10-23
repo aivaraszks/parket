@@ -4,12 +4,17 @@ Handoff file for the main session. Updated after every phase change so work can 
 
 ## Waiting on the user
 
-- Answers given 2026-10-23 for the next feature (wall/door colouring): per-wall colour, palette + custom picker, also skirting and ceiling. Plan not written yet.
+- Next feature: share a design by link + multiple projects in localStorage. Answers so far: link only (design packed in the URL hash, no upload); the phone share sheet, falling back to copy on desktop; opening a link asks, then loads it as a separate project; the user can have multiple projects. Plan not started.
 
 ## Committed
 
-- Floor visualizer + custom room shape (562 tests, phone-tested and approved by the user 2026-10-23). Not pushed.
-- `c3f264a` Landing page (deployed to Pages).
+- `v0.1.0`: wall/door/ceiling/skirting colouring, compact phone UI, 3D tap select on the Surfaces tab (674 tests, axe 0). Deployed.
+- `e1ed09b` Floor visualizer + custom room shape.
+- `c3f264a` Landing page.
+
+## Versioning
+
+- Semver tags `vX.Y.Z` on every deploy, with package.json version in sync. Feature = minor, fix = patch.
 
 ## Environment notes
 

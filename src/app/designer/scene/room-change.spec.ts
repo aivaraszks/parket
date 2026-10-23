@@ -9,6 +9,7 @@ const room: RoomShape = {
     { x: 2, y: 1 },
     { x: -2, y: 1 },
   ],
+  wallIds: ['s0', 's1', 's2', 's3'],
   height: 2.7,
   openings: [{ id: 'd1', kind: 'door', wall: 0, start: 1, end: 2, bottom: 0, top: 2 }],
 };
@@ -34,6 +35,11 @@ describe('diffRoom', () => {
   it('rebuilds the thresholds but not the planks when a door moves', () => {
     const moved = { ...room, openings: [{ ...room.openings[0], start: 1.2, end: 2.2 }] };
     expect(diffRoom(room, moved)).toEqual({ shell: true, mask: true, placements: false });
+  });
+
+  it('rebuilds only the shell when wall ids change (they key the per-wall materials)', () => {
+    const renamed = { ...room, wallIds: ['a', 'b', 'c', 'd'] };
+    expect(diffRoom(room, renamed)).toEqual({ shell: true, mask: false, placements: false });
   });
 
   it('rebuilds the planks when the outline changes', () => {

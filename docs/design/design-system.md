@@ -152,6 +152,23 @@ All targets at least `--target-min` (44px); gap between adjacent targets at leas
 A link (`routerLink="/designer"`), 48px high (`--cta-height`), padding `0 var(--cta-pad-x)`, `--radius-pill`, `--font-ui` `--text-sm` semibold, uppercase, `--cta-tracking` 0.2em, white text (`--color-text-on-floor`), 1px `--cta-border`, fill `--cta-bg` with `backdrop-filter: blur(6px)`, `--shadow-text`-style soft shadow `--shadow-rule`. Hover and focus: fill `--cta-bg-hover` `#f0b860`, text `--cta-text-hover` (dark, 10.1:1); focus also shows `--focus-ring`. Active: fill `--accent-active`. Appears after the sequence: fade + 8px rise over `--dur-cta-in` starting `--delay-cta` (hidden with `visibility` until then; shown at once on early input or reduced motion). The small kicker "Herringbone, in 3D" above: `--text-xs`, caps, `--tracking-caps`, white at 0.85 opacity over the veil (about 6:1).
 Contrast: white on `--cta-bg` over the brightest sun-lit oak (lum about 0.49) blends to lum about 0.11, so 6.6:1 (AA 4.5:1 passes); over normal oak it is higher. Estimated; verify on a screenshot.
 
+## Compact phone scale
+
+On phone layouts (bottom sheet: below 900px, excluding the landscape side panel at min-width 700px and max-height 499px) the designer and plan editor hosts redefine the size tokens at 0.8x, to leave more room for the 3D view. Desktop, the landscape side panel and the landing page are unchanged. Source: `src/app/designer/_phone-scale.scss` (mixin `phone-tokens`, included by `designer.scss` and `plan-editor.scss`).
+
+| Tokens | Phone value |
+| --- | --- |
+| `--ui-scale` | 0.8 (1 elsewhere); fixed rem sizes use `calc(Xrem * var(--ui-scale))` |
+| `--text-xs` / `sm` / `md` / `lg` / `xl` / `2xl` | 0.7 / 0.75 / 0.8 / 0.9 / 1 / 1.2 rem |
+| `--space-1` ... `--space-12` | 0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.6, 2, 2.4 rem |
+| `--radius-sm` / `md` / `lg` | 0.3 / 0.5 / 0.8 rem |
+| `--target-min` | 2.2rem (35px; never below 24px, WCAG 2.5.8) |
+| `--thumb-size` / `--track-height` | 1.4rem / 0.2rem |
+| `--sheet-handle-w` / `-h` | 2rem / 0.2rem |
+| `--plan-bar-h` | 2.8rem |
+
+Not scaled: `--text-input` (1rem), so text and number inputs keep a 16px font (smaller makes iOS Safari zoom on focus); their height, padding and width shrink instead. Also unscaled: SVG plan labels, handle radii and the 44px touch hit area on the plan canvas, 1-2px borders and focus rings, `max-width` caps (dialog, toast, chips), and the viewport meta.
+
 ## Breakpoints
 
 Media queries cannot read custom properties, so values are fixed constants: phone sheet below 900px; desktop side panel at min-width 900px; landscape phone side panel at min-width 700px and max-height 499px. Panel width `--panel-width` 360px.
@@ -189,6 +206,10 @@ Shared list for both pickers (names are the accessible names). Defaults: wall = 
 | `dusty-blue` | Dusty blue | `#a9b9c4` |
 | `terracotta` | Terracotta | `#c08a6e` |
 | `charcoal` | Charcoal | `#3d3a38` |
+
+## Colouring mode (surface colours)
+
+Full visual spec, palettes (`WALL_PAINTS`, `DOOR_COLOURS`, `SKIRTING_COLOURS`) and contrast: `docs/design/components/colouring.md`. Tokens in `src/styles.scss`: `--toggle-pressed-*`, `--chip-dot-size`, `--chip-dot-border`, `--chip-check-size`, `--surface-chip-*`, `--default-swatch-min-w`, `--custom-swatch-ring`, `--highlight-color` (#ffb454), `--highlight-intensity` (0.18) and `--highlight-intensity-single` (0.26). `WALL_PAINTS` contains all eight wall presets above (same ids and hexes) plus Greige, Blush, Forest green and Navy.
 
 ---
 

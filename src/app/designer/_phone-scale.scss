@@ -1,0 +1,34 @@
+// Compact phone scale: the bottom-sheet layouts (below 900px, except landscape phones with the
+// side panel) redefine the size tokens at 0.8x to leave more room for the 3D view and the plan.
+// Explicit values on purpose (no calc cycles). See docs/design/design-system.md, "Compact phone scale".
+@mixin phone-tokens {
+  @media (max-width: 699px), (min-height: 500px) and (max-width: 899px) {
+    :host {
+      --ui-scale: 0.8;
+      --text-xs: 0.7rem;
+      --text-sm: 0.75rem;
+      --text-md: 0.8rem;
+      --text-lg: 0.9rem;
+      --text-xl: 1rem;
+      --text-2xl: 1.2rem;
+      --space-1: 0.2rem;
+      --space-2: 0.4rem;
+      --space-3: 0.6rem;
+      --space-4: 0.8rem;
+      --space-5: 1rem;
+      --space-6: 1.2rem;
+      --space-8: 1.6rem;
+      --space-10: 2rem;
+      --space-12: 2.4rem;
+      --radius-sm: 0.3rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 0.8rem;
+      --target-min: 2.2rem;
+      --thumb-size: 1.4rem;
+      --track-height: 0.2rem;
+      --sheet-handle-w: 2rem;
+      --sheet-handle-h: 0.2rem;
+      --plan-bar-h: 2.8rem;
+    }
+  }
+}

@@ -62,6 +62,8 @@
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
+  --text-input: 1rem; // inputs stay 16px on phones (iOS Safari zooms smaller ones)
+  --ui-scale: 1; // 0.8 on phones, see "Compact phone scale"
   --text-lg: 1.125rem;
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
@@ -144,6 +146,25 @@
   --dur-base: 200ms;
   --dur-sheet: 320ms;
   --dur-fade-wood: 300ms;
+
+  // Colouring mode (docs/design/components/colouring.md).
+  // Sizes are base rem: components use calc(var(--x) * var(--ui-scale)) for the phone scale.
+  --toggle-pressed-bg: var(--accent);
+  --toggle-pressed-text: var(--text-on-accent);
+  --toggle-pressed-bg-hover: var(--accent-hover);
+  --chip-dot-size: 1.125rem; // colour chip inside a surface-list item
+  --chip-dot-border: var(--control-border);
+  --chip-check-size: 0.875rem;
+  --surface-chip-bg: var(--field-bg);
+  --surface-chip-bg-selected: var(--field-bg-hover);
+  --surface-chip-ring: var(--accent); // selected: 2px ring + check
+  --default-swatch-min-w: 5.5rem; // text swatch ("Same as other walls", "Match walls", "Auto")
+  --custom-swatch-ring: var(--accent);
+  // 3D selection highlight: emissive tint applied by the scene (linear RGB in three.js).
+  // Values are read by frontend as constants (see doc); the CSS copies keep one source of truth.
+  --highlight-color: #ffb454;
+  --highlight-intensity: 0.18; // "All walls" / "All doors": same value, no stronger
+  --highlight-intensity-single: 0.26; // a single wall, door, skirting or ceiling
 
   // Landing CTA pill
   --cta-bg: rgb(28 14 5 / 0.55);

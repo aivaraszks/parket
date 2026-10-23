@@ -16,6 +16,8 @@ import { WoodPicker } from './wood-picker';
       customLabel="Custom wall colour"
       [presets]="presets"
       [value]="colour()"
+      [defaultLabel]="defaultLabel()"
+      [deferCustom]="defer()"
       (picked)="colour.set($event)"
     />
     <app-finish-control [value]="finish()" (picked)="finish.set($event)" />
@@ -25,7 +27,9 @@ class Host {
   readonly species = SPECIES;
   readonly presets = COLOR_PRESETS;
   readonly wood = signal('golden-oak');
-  readonly colour = signal('#efe9df');
+  readonly colour = signal<string | null>('#efe9df');
+  readonly defaultLabel = signal<string | null>(null);
+  readonly defer = signal(false);
   readonly finish = signal<Finish>('satin');
 }
 
@@ -81,6 +85,66 @@ describe('SwatchGroup', () => {
     fixture.detectChanges();
     expect(host.colour()).toBe('#123456');
     expect(el.querySelector('app-swatch-group input[type=radio]:checked')).toBeNull();
+  });
+});
+
+describe('SwatchGroup default swatch and deferred custom colour', () => {
+  it('has no default swatch unless asked', () => {
+    const { el } = setup();
+    expect(el.querySelector('app-swatch-group input[data-default]')).toBeNull();
+  });
+
+  it('shows a default swatch first, checked while the value is null, and emits null', () => {
+    const { fixture, host, el } = setup();
+    host.defaultLabel.set('Match walls');
+    host.colour.set(null);
+    fixture.detectChanges();
+    const radios = el.querySelectorAll<HTMLInputElement>('app-swatch-group input[type=radio]');
+    expect(radios[0].hasAttribute('data-default')).toBe(true);
+    expect(radios[0].checked).toBe(true);
+    expect(el.querySelector('app-swatch-group .face')?.textContent?.trim()).toBe('Match walls');
+
+    el.querySelector<HTMLInputElement>('app-swatch-group input[aria-label="Sand"]')!.click();
+    fixture.detectChanges();
+    expect(host.colour()).toBe('#d2bfa0');
+    expect(radios[0].checked).toBe(false);
+
+    radios[0].click();
+    fixture.detectChanges();
+    expect(host.colour()).toBeNull();
+    expect(radios[0].checked).toBe(true);
+    expect(el.querySelector('app-swatch-group .custom .chip.active')).toBeNull();
+  });
+
+  it('applies a custom colour on change, not on input, when deferred', () => {
+    const { fixture, host, el } = setup();
+    host.defer.set(true);
+    fixture.detectChanges();
+    const custom = el.querySelector<HTMLInputElement>('input[type=color]')!;
+    custom.value = '#123456';
+    custom.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(host.colour()).toBe('#efe9df');
+    custom.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(host.colour()).toBe('#123456');
+  });
+
+  it('puts the checked state back when the parent refuses a preset', () => {
+    const { fixture, host, el } = setup();
+    // The parent ignores the change (a confirmation is pending), so the value stays.
+    host.colour.set('#efe9df');
+    const sand = el.querySelector<HTMLInputElement>('app-swatch-group input[aria-label="Sand"]')!;
+    const orig = host.colour.set.bind(host.colour);
+    host.colour.set = () => undefined;
+    sand.click();
+    fixture.detectChanges();
+    host.colour.set = orig;
+    expect(sand.checked).toBe(false);
+    expect(
+      el.querySelector<HTMLInputElement>('app-swatch-group input[aria-label="Warm white"]')!
+        .checked,
+    ).toBe(true);
   });
 });
 

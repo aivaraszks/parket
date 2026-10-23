@@ -6,7 +6,6 @@ import { PlanEditorLauncher } from '../plan-editor-launcher';
 import { FloorTab } from './floor-tab';
 import { LightTab } from './light-tab';
 import { RoomTab } from './room-tab';
-import { SurfacesTab } from './surfaces-tab';
 
 function setup<T>(component: Type<T>) {
   localStorage.clear();
@@ -47,29 +46,6 @@ describe('RoomTab', () => {
     setRange('Width', 6);
     setRange('Ceiling height', 3);
     expect(state.simpleRoom()).toEqual({ length: 7, width: 6, height: 3 });
-  });
-});
-
-describe('SurfacesTab', () => {
-  it('has a swatch group for walls and one for the ceiling', () => {
-    const { el } = setup(SurfacesTab);
-    const legends = Array.from(el.querySelectorAll('legend')).map((l) => l.textContent);
-    expect(legends).toEqual(['Wall colour', 'Ceiling colour']);
-    expect(el.querySelector('input[aria-label="Custom wall colour"]')).not.toBeNull();
-    expect(el.querySelector('input[aria-label="Custom ceiling colour"]')).not.toBeNull();
-  });
-
-  it('sets the wall and ceiling colour', () => {
-    const { fixture, el, state } = setup(SurfacesTab);
-    const [walls, ceiling] = Array.from(el.querySelectorAll('fieldset'));
-    const pick = (group: Element, name: string): void => {
-      group.querySelector<HTMLInputElement>(`input[aria-label="${name}"]`)!.click();
-      fixture.detectChanges();
-    };
-    pick(walls, 'Sage');
-    pick(ceiling, 'Charcoal');
-    expect(state.wallColor()).toBe('#b5bfa5');
-    expect(state.ceilingColor()).toBe('#3d3a38');
   });
 });
 

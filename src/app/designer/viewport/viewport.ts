@@ -12,7 +12,9 @@ import {
   viewChild,
 } from '@angular/core';
 import { bbox } from '../plan/polygon';
+import { SurfaceHit, surfaceExists } from '../plan/paint';
 import { shapeArea } from '../plan/room-shape';
+import { ColouringState } from '../state/colouring-state';
 import { DesignState } from '../state/design-state';
 import { getSpecies } from '../state/species';
 import { FloorSceneApi, SceneCallbacks } from '../scene/scene-api';
@@ -50,18 +52,24 @@ export const CAMERA_HELP_ID = 'viewport-help';
         [attr.tabindex]="ready() ? 0 : -1"
         [attr.aria-hidden]="ready() ? null : 'true'"
         [attr.aria-label]="ready() ? ariaLabel() : null"
-        [attr.aria-describedby]="helpId"
+        [attr.aria-describedby]="describedBy()"
       ></canvas>
     }
     <p [id]="helpId" class="visually-hidden">
       Drag to look around. Pinch or scroll to zoom. Two fingers or right-drag to move. With the
       keyboard: arrow keys to look around, plus and minus to zoom, 0 to reset the view.
     </p>
+    @if (colouring.active()) {
+      <p [id]="colourHelpId" class="visually-hidden">
+        Colour mode is on. Use the Surfaces tab to pick a surface from a list.
+      </p>
+    }
   `,
   styleUrl: './viewport.scss',
 })
 export class Viewport {
   private readonly design = inject(DesignState);
+  protected readonly colouring = inject(ColouringState);
   private readonly commands = inject(SceneCommands);
   private readonly factory = inject(FLOOR_SCENE_FACTORY);
   private readonly injector = inject(Injector);
@@ -76,6 +84,12 @@ export class Viewport {
 
   /** The canvas is only a focusable, labelled view while the 3D scene is actually showing. */
   protected readonly ready = computed(() => this.commands.status() === 'ready');
+
+  protected readonly colourHelpId = 'viewport-colour-help';
+  /** Tells screen-reader users the canvas cannot be tapped by keyboard while Colour mode is on. */
+  protected readonly describedBy = computed(() =>
+    this.colouring.active() ? `${this.helpId} ${this.colourHelpId}` : this.helpId,
+  );
 
   protected readonly ariaLabel = computed(() => {
     const species = getSpecies(this.design.species()).name.toLowerCase();
@@ -119,9 +133,26 @@ export class Viewport {
     });
     effect(() => {
       const scene = this.scene();
-      const wall = this.design.wallColor();
-      const ceiling = this.design.ceilingColor();
-      scene?.setSurfaces(wall, ceiling);
+      const paint = this.design.paint();
+      scene?.setPaint(paint);
+    });
+    effect(() => {
+      const scene = this.scene();
+      const on = this.colouring.picking();
+      scene?.setPicking(on);
+    });
+    effect(() => {
+      const scene = this.scene();
+      const selected = this.colouring.selected();
+      scene?.setHighlight(selected);
+    });
+    effect(() => {
+      // A plan edit or mode switch can remove the selected wall or door.
+      const shape = this.design.roomShape();
+      const selected = this.colouring.selected();
+      if (selected && !surfaceExists(selected, shape)) {
+        this.colouring.clear();
+      }
     });
     effect(() => {
       const scene = this.scene();
@@ -169,7 +200,10 @@ export class Viewport {
     this.commands.setStatus('loading');
     let scene: FloorSceneApi;
     try {
-      scene = this.factory(canvas, { onStatus: (status) => this.onSceneStatus(status) });
+      scene = this.factory(canvas, {
+        onStatus: (status) => this.onSceneStatus(status),
+        onPick: (hit) => this.onPick(hit),
+      });
     } catch (error) {
       const noWebgl = error instanceof Error && /webgl/i.test(error.message);
       this.commands.setStatus(noWebgl ? 'no-webgl' : 'error');
@@ -177,6 +211,15 @@ export class Viewport {
     }
     this.commands.attach(scene);
     this.scene.set(scene);
+  }
+
+  /** A tap in the 3D view: a surface selects it, empty space clears the selection. */
+  private onPick(hit: SurfaceHit | null): void {
+    if (hit) {
+      this.colouring.select(hit, 'tap');
+    } else {
+      this.colouring.clear();
+    }
   }
 
   private stop(): void {

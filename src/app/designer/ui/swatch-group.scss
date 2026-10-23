@@ -10,8 +10,8 @@ fieldset {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: calc(1.25rem * var(--ui-scale));
+  height: calc(1.25rem * var(--ui-scale));
   color: var(--text-primary);
 }
 
@@ -23,4 +23,65 @@ fieldset {
 
 .custom input:focus-visible + .chip {
   outline: 2px solid var(--focus-ring-color);
+}
+
+// Not a preset yet: dashed, until a colour has been picked.
+.custom .chip:not(.active) {
+  border-style: dashed;
+}
+
+.chip.active {
+  outline-color: var(--custom-swatch-ring);
+}
+
+// Text swatch for "no colour of its own": a radio in the same group.
+.face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  box-sizing: border-box;
+  min-width: var(--default-swatch-min-w);
+  min-height: var(--target-min);
+  padding: 0 var(--space-3);
+  background: var(--field-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font: var(--weight-medium) var(--text-sm) / var(--leading-tight) var(--font-ui);
+  text-align: center;
+
+  .check {
+    position: static;
+    flex: none;
+    width: calc(var(--chip-check-size) * var(--ui-scale));
+    height: calc(var(--chip-check-size) * var(--ui-scale));
+    color: var(--text-accent);
+  }
+}
+
+.default:hover .face {
+  background: var(--field-bg-hover);
+  outline: 0;
+}
+
+.default input:checked + .face {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.default input:focus-visible + .face {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--focus-ring-halo);
+}
+
+@media (forced-colors: active) {
+  .default input:checked + .face {
+    outline-color: Highlight;
+  }
+}
+
+.default input {
+  height: 100%;
 }

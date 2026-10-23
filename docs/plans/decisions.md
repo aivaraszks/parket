@@ -23,3 +23,12 @@ Append new entries at the bottom, dated.
 - Storage key `parket.design.v2` = v1 fields + `mode` + `plan`. v1 is read once as a migration source and never written. A stored plan is sanitised as hostile input; an invalid geometry falls back to simple mode silently.
 - The 2D editor is a lazy child route `/designer/plan`, rendered in SVG over the live designer. It has no three.js import. It commits to state once per finished gesture and has its own in-memory undo/redo.
 - The sun azimuth is 0-359 in both modes, with a hint when no window faces the sun.
+
+## 2026-10-23 - Wall colouring (plan: `docs/plans/wall-colouring.md`, pending approval)
+
+- Colours are base values (`wallColor`, `ceilingColor`, `skirtingColor` null = match wall, `doorColor` null = auto) plus per-surface overrides. Custom-mode overrides live on the plan records (`PlanWall.color`, `PlanOpening.color`), so they survive id compaction, split (both parts keep the colour), merge (the first wall's colour wins) and editor undo. Simple mode stores 4 overrides in `simpleWallColors`.
+- `RoomShape` carries `wallIds` (plan ids, or `s0`..`s3` in simple mode). Colours are not part of `RoomShape`: a resolved `SurfacePaint` keyed by id is a separate input, so recolouring never rebuilds geometry.
+- The scene uses one material per wall, skirting run and door leaf, tagged with `userData.surface` for picking. The highlight is a static emissive tint (render on demand kept), and it is excluded from the PNG export.
+- Tap vs drag is decided by a pure tap detector (one pointer, <= 8 px, <= 500 ms). A raycast runs once per tap against the tagged meshes only, never in the render loop.
+- The selection and Colour mode are non-persisted UI state (`ColouringState`). The Surfaces tab surface list is the keyboard/screen-reader equivalent of tapping.
+- Storage key `parket.design.v3`; v2 and v1 are read-only migration sources. Reset keeps the plan but strips its colour overrides; undo conventions are unchanged.

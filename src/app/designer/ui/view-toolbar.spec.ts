@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SceneCommands } from '../scene/scene-commands';
+import { ColouringState } from '../state/colouring-state';
 import { ImageExport } from './image-export';
 import { ViewToolbar } from './view-toolbar';
 
@@ -70,7 +71,7 @@ describe('ViewToolbar', () => {
     await flush();
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     const items = el.querySelectorAll<HTMLElement>('#views-popover .item');
-    expect(items.length).toBe(5);
+    expect(items.length).toBe(6);
     expect(document.activeElement).toBe(items[0]);
     items[1].click();
     await flush();
@@ -134,6 +135,65 @@ describe('ViewToolbar', () => {
     await flush();
     expect(el.querySelector('#help-popover')).toBeNull();
     expect(document.activeElement).toBe(q('[data-trigger=help]'));
+  });
+
+  it('the Colour toggle is a pressed button that turns Colour mode on and off', async () => {
+    const { fixture, q } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.setActive(false);
+    const toggle = q('[data-colour-toggle]');
+    expect(toggle.textContent).toContain('Colour');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    toggle.click();
+    fixture.detectChanges();
+    expect(colouring.active()).toBe(true);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    toggle.click();
+    fixture.detectChanges();
+    expect(colouring.active()).toBe(false);
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('the Views menu has a Colour mode item that toggles and closes the menu', async () => {
+    const { el, q, flush } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.setActive(false);
+    q('[data-trigger=views]').click();
+    await flush();
+    const item = q('[data-colour-item]');
+    expect(item.getAttribute('aria-pressed')).toBe('false');
+    expect(item.textContent).toContain('Tap surfaces to colour them');
+    item.click();
+    await flush();
+    expect(colouring.active()).toBe(true);
+    expect(el.querySelector('#views-popover')).toBeNull();
+    colouring.setActive(false);
+  });
+
+  it('Escape closing the Views menu leaves Colour mode alone (the event is handled)', async () => {
+    const { q, flush } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.setActive(true);
+    q('[data-trigger=views]').click();
+    await flush();
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    document.activeElement!.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(colouring.active()).toBe(true);
+    colouring.setActive(false);
+  });
+
+  it('the Colour toggle is aria-disabled and does nothing without a 3D view', async () => {
+    status.set('no-webgl');
+    const { fixture, q } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.setActive(false);
+    const toggle = q('[data-colour-toggle]');
+    expect(toggle.getAttribute('aria-disabled')).toBe('true');
+    expect(toggle.title).toBe('Needs 3D view');
+    toggle.click();
+    fixture.detectChanges();
+    expect(colouring.active()).toBe(false);
   });
 
   it('without a 3D view Help still opens but Views, presets, zoom and Save do nothing', async () => {

@@ -1,18 +1,29 @@
 <main
   class="stage"
-  [attr.inert]="editorOpen() ? '' : null"
+  [attr.inert]="covered() ? '' : null"
   (pointerdown)="onStagePointer()"
   (keydown)="onStagePointer()"
+  (keydown.escape)="onStageEscape($event)"
 >
   <h1 class="visually-hidden">Floor designer</h1>
   <app-view-toolbar />
   <app-viewport />
   <app-viewport-status />
 </main>
-<app-controls-sheet [attr.inert]="editorOpen() ? '' : null" [(stop)]="stop" [(tab)]="tab" />
+<app-controls-sheet [attr.inert]="covered() ? '' : null" [(stop)]="stop" [(tab)]="tab" />
 <router-outlet (activate)="editorOpen.set(true)" (deactivate)="onEditorClosed()" />
 <app-editor-loader />
-<app-toast-host />
+<app-toast-host [attr.inert]="confirm.pending() ? '' : null" />
 @if (exporter.fallbackUrl(); as url) {
   <app-image-dialog [url]="url" (closed)="exporter.closeFallback()" />
+}
+<div class="visually-hidden" role="status" aria-live="polite" aria-atomic="true">
+  {{ announcer.message() }}
+</div>
+@if (confirm.pending(); as request) {
+  <app-colour-confirm-dialog
+    [body]="request.body"
+    (confirmed)="confirm.confirm()"
+    (cancelled)="confirm.cancel()"
+  />
 }

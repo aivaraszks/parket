@@ -2,6 +2,7 @@
 //
 // CONTRACT FILE (signature). Frozen for parallel tracks.
 
+import { normalizeHex } from './paint';
 import {
   ID_PATTERN,
   MAX_ID_NUMBER,
@@ -33,6 +34,11 @@ function isRecord(value: unknown): value is Rec {
 
 function readId(value: unknown, letter: string): string | null {
   return typeof value === 'string' && ID_PATTERN.test(value) && value[0] === letter ? value : null;
+}
+
+/** A stored colour: lowercase `#rrggbb` or undefined. */
+function readColor(value: unknown): string | undefined {
+  return normalizeHex(value) ?? undefined;
 }
 
 /** A finite number, rounded to mm and clamped to +-coordMax; null otherwise. */
@@ -79,7 +85,8 @@ function readWalls(raw: unknown, vertexIds: Set<string>): PlanWall[] | null {
       return null;
     }
     seen.add(id);
-    out.push({ id, from, to });
+    const color = readColor(item['color']);
+    out.push(color ? { id, from, to, color } : { id, from, to });
   }
   return out;
 }
@@ -162,7 +169,21 @@ function readOpening(item: unknown, wallIds: Set<string>): PlanOpening | null {
   }
   const isDoor = (kind as OpeningKind) === 'door';
   const anchor: OpeningAnchor = !isDoor && item['anchor'] === 'ceiling' ? 'ceiling' : 'floor';
-  return { id, wallId, kind, offset, width, height, sill: isDoor ? 0 : sill, anchor };
+  const color = isDoor ? readColor(item['color']) : undefined;
+  const opening: PlanOpening = {
+    id,
+    wallId,
+    kind,
+    offset,
+    width,
+    height,
+    sill: isDoor ? 0 : sill,
+    anchor,
+  };
+  if (color) {
+    opening.color = color;
+  }
+  return opening;
 }
 
 function readCounter(value: unknown, minimum: number): number {
@@ -279,9 +300,14 @@ export function sanitizePlan(raw: unknown): Plan | null {
       }));
   }
 
+  const colorOf = new Map(walls.flatMap((w) => (w.color ? [[w.id, w.color] as const] : [])));
   const plan: Plan = {
     vertices: orderedVertices.map((v) => ({ ...v })),
-    walls: orderedWalls,
+    // chainWalls / the winding fix rebuild wall records, so colours are restored by id.
+    walls: orderedWalls.map((w) => {
+      const color = colorOf.get(w.id);
+      return color ? { ...w, color } : w;
+    }),
     rooms: [{ id: roomId, wallIds: orderedWalls.map((w) => w.id), height }],
     openings: [],
     nextId: readCounter(

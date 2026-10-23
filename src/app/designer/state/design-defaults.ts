@@ -41,6 +41,12 @@ export interface Design {
   plan: Plan | null;
   wallColor: string;
   ceilingColor: string;
+  /** Skirting colour; null = each skirting piece matches its wall. */
+  skirtingColor: string | null;
+  /** Door colour (leaf and casing); null = auto (wood on light walls, white on dark). */
+  doorColor: string | null;
+  /** Simple-mode wall colours, exactly 4, index = outline edge (0 = window wall); null = base wall colour. */
+  simpleWallColors: (string | null)[];
   species: string;
   plank: Plank;
   /** Parallel planks per herringbone block (1 = classic herringbone). */
@@ -119,6 +125,9 @@ export const DEFAULT_DESIGN: Readonly<Design> = {
   room: { length: 5, width: 4, height: 2.7 },
   wallColor: '#efe9df',
   ceilingColor: '#f7f5f0',
+  skirtingColor: null,
+  doorColor: null,
+  simpleWallColors: [null, null, null, null],
   species: DEFAULT_SPECIES,
   plank: { length: 600, width: 100 },
   planksPerBlock: 1,
@@ -129,7 +138,9 @@ export const DEFAULT_DESIGN: Readonly<Design> = {
   wastePercent: 12,
 };
 
-export const STORAGE_KEY = 'parket.design.v2';
+export const STORAGE_KEY = 'parket.design.v3';
+/** Read-only migration source (before wall colouring); never written again. */
+export const STORAGE_KEY_V2 = 'parket.design.v2';
 /** Read-only fallback for designs saved before custom rooms; never written again. */
 export const STORAGE_KEY_V1 = 'parket.design.v1';
 export const PERSIST_DEBOUNCE_MS = 300;

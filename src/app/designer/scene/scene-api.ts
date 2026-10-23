@@ -1,3 +1,4 @@
+import { SurfaceHit, SurfacePaint, SurfaceRef } from '../plan/paint';
 import { RoomShape } from '../plan/room-shape';
 import { Finish, PatternId, Sun } from '../state/design-defaults';
 import { Species } from '../state/species';
@@ -17,6 +18,11 @@ export interface FloorLayout {
 
 export interface SceneCallbacks {
   onStatus(status: SceneStatus): void;
+  /**
+   * A tap while picking is on (`setPicking(true)`); `null` when the tap hit nothing pickable
+   * (floor, window, sky). Called synchronously from the pointer event, never from the render loop.
+   */
+  onPick(hit: SurfaceHit | null): void;
 }
 
 /**
@@ -25,7 +31,12 @@ export interface SceneCallbacks {
  */
 export interface FloorSceneApi extends SceneController {
   setRoom(shape: RoomShape): void;
-  setSurfaces(wallColor: string, ceilingColor: string): void;
+  /** Resolved colours; only updates materials, never geometry. Missing ids use the base colours. */
+  setPaint(paint: SurfacePaint): void;
+  /** Turn tap picking on or off (also switches the canvas cursor). */
+  setPicking(on: boolean): void;
+  /** Highlight a surface (every wall / door for the groups); `null` clears it. Never in the PNG export. */
+  setHighlight(ref: SurfaceRef | null): void;
   setSpecies(species: Species): void;
   setFinish(finish: Finish): void;
   setSun(sun: Sun): void;

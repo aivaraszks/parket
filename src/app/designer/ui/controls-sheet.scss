@@ -8,7 +8,7 @@
   z-index: var(--z-sheet);
   display: block;
   height: var(--sheet-peek);
-  min-height: 9.5rem;
+  min-height: calc(9.5rem * var(--ui-scale));
   transition: height var(--dur-sheet) var(--ease-out);
 
   @media (prefers-reduced-motion: reduce) {

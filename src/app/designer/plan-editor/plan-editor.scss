@@ -1,5 +1,7 @@
+@use '../phone-scale' as phone;
+
 :host {
-  --panel-h: max(var(--plan-panel-collapsed), 10.5rem);
+  --panel-h: max(var(--plan-panel-collapsed), calc(10.5rem * var(--ui-scale)));
   position: fixed;
   inset: 0;
   z-index: var(--z-plan);
@@ -62,3 +64,5 @@ app-plan-canvas {
       'canvas panel';
   }
 }
+
+@include phone.phone-tokens;

@@ -1,0 +1,45 @@
+@use '../shared';
+
+@include shared.tab-content;
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+h3 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+}
+
+.hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  .helper {
+    flex: 1;
+  }
+
+  // Phones only: the toolbar toggle is inside the Views popover there.
+  @media (min-width: 900px) {
+    .done {
+      display: none;
+    }
+  }
+}
+
+.done {
+  @include shared.button;
+  flex: none;
+}
+
+.readout {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}

@@ -24,6 +24,8 @@ export interface PlanWall {
   /** Vertex ids. For the room loop, `from` -> `to` always follows the loop direction. */
   from: string;
   to: string;
+  /** Own colour, lowercase `#rrggbb`; absent = the design's base wall colour (accent wall). */
+  color?: string;
 }
 
 export interface PlanRoom {
@@ -54,6 +56,8 @@ export interface PlanOpening {
    * The gap to the ceiling is derived: `roomHeight - sill - height`.
    */
   anchor: OpeningAnchor;
+  /** Own colour of a door (leaf and casing), `#rrggbb`; absent = the design's door colour. Never set on windows. */
+  color?: string;
 }
 
 /**

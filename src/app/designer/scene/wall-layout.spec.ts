@@ -28,6 +28,7 @@ const rect = (openings: ShapeOpening[]): RoomShape => ({
     { x: 2.5, y: 2 },
     { x: -2.5, y: 2 },
   ],
+  wallIds: ['s0', 's1', 's2', 's3'],
   height: 2.7,
   openings,
 });

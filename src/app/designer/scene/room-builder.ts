@@ -3,7 +3,6 @@ import {
   BoxGeometry,
   BufferGeometry,
   CanvasTexture,
-  Color,
   CylinderGeometry,
   ExtrudeGeometry,
   Group,
@@ -19,6 +18,7 @@ import {
   SRGBColorSpace,
   Vector2,
 } from 'three';
+import { autoDoorColor, SurfaceHit, SurfacePaint, SurfaceRef } from '../plan/paint';
 import { interiorAngles, offsetPolygon, Vec2 } from '../plan/polygon';
 import { RoomShape, ShapeOpening } from '../plan/room-shape';
 import {
@@ -29,8 +29,8 @@ import {
   createSubfloorMaterial,
   createTrimMaterial,
   createWallMaterial,
-  doorColor,
 } from './materials';
+import { HIGHLIGHT_COLOR, highlightIntensity } from './highlight';
 import { SKIRTING_HEIGHT, WallLayout, wallLayout } from './wall-layout';
 
 /** Wall thickness (metres), growing outward from the inner face. */
@@ -51,6 +51,10 @@ const LEAF_THICKNESS = 0.04;
 const LEAF_Z = -0.06;
 const LEAF_LIFT = 0.012;
 const HANDLE_HEIGHT = 1.0;
+
+/** Used before the first paint arrives. */
+const FALLBACK_WALL = '#efe9df';
+const FALLBACK_DOOR = '#9a7049';
 
 const SKY_RADIUS = 60;
 const SKY_CENTER_Y = 1.5;
@@ -141,13 +145,11 @@ export function buildPrismGeometry(
 export class RoomBuilder {
   readonly group = new Group();
 
-  private readonly wallMaterial = createWallMaterial('#efe9df');
   private readonly ceilingMaterial = createCeilingMaterial('#f7f5f0');
   private readonly subfloorMaterial = createSubfloorMaterial();
   private readonly trimMaterial = createTrimMaterial();
   private readonly glassMaterial: MeshPhysicalMaterial = createGlassMaterial();
   private readonly metalMaterial = createMetalMaterial();
-  private readonly doorMaterial = createDoorMaterial();
   private readonly skyTexture = skyTexture();
   private readonly skyMaterial = new MeshBasicMaterial({
     map: this.skyTexture,
@@ -167,6 +169,13 @@ export class RoomBuilder {
   );
   private readonly shell = new Group();
   private geometries: BufferGeometry[] = [];
+  /** Per-surface materials of the current shell, keyed by wall id / door opening id. */
+  private wallMaterials = new Map<string, MeshStandardMaterial>();
+  private skirtingMaterials = new Map<string, MeshStandardMaterial>();
+  private doorMaterials = new Map<string, MeshStandardMaterial>();
+  private pickableMeshes: Mesh[] = [];
+  private paint: SurfacePaint | null = null;
+  private highlight: SurfaceRef | null = null;
 
   constructor() {
     const sky = new Mesh(this.skyGeometry, this.skyMaterial);
@@ -176,10 +185,74 @@ export class RoomBuilder {
     this.group.add(sky, this.shell);
   }
 
-  setColors(wall: string, ceiling: string): void {
-    this.wallMaterial.color.set(new Color(wall));
-    this.ceilingMaterial.color.set(new Color(ceiling));
-    this.doorMaterial.color.set(new Color(doorColor(wall)));
+  /** The tagged meshes a tap can hit (flat list, rebuilt with the shell). */
+  get pickables(): readonly Mesh[] {
+    return this.pickableMeshes;
+  }
+
+  /** Surface materials alive: one per wall, per wall's skirting, per door, plus the ceiling. */
+  get materialCount(): number {
+    return this.wallMaterials.size + this.skirtingMaterials.size + this.doorMaterials.size + 1;
+  }
+
+  /** Set colours on the existing materials. Never touches geometry. */
+  applyPaint(paint: SurfacePaint): void {
+    this.paint = paint;
+    const base = paint.base || FALLBACK_WALL;
+    this.ceilingMaterial.color.set(paint.ceiling);
+    for (const [id, material] of this.wallMaterials) {
+      material.color.set(paint.walls[id] ?? base);
+    }
+    for (const [id, material] of this.skirtingMaterials) {
+      material.color.set(paint.skirting[id] ?? paint.walls[id] ?? base);
+    }
+    for (const [id, material] of this.doorMaterials) {
+      material.color.set(paint.doors[id] ?? autoDoorColor(base));
+    }
+  }
+
+  /** Emissive tint on the selected surface (groups tint all members); null clears it. */
+  setHighlight(ref: SurfaceRef | null): void {
+    this.highlight = ref;
+    this.applyHighlight();
+  }
+
+  private highlightTargets(ref: SurfaceRef): MeshStandardMaterial[] {
+    const one = (m: MeshStandardMaterial | undefined) => (m ? [m] : []);
+    switch (ref.kind) {
+      case 'walls':
+        return [...this.wallMaterials.values()];
+      case 'wall':
+        return one(this.wallMaterials.get(ref.id));
+      case 'doors':
+        return [...this.doorMaterials.values()];
+      case 'door':
+        return one(this.doorMaterials.get(ref.id));
+      case 'skirting':
+        return [...this.skirtingMaterials.values()];
+      case 'ceiling':
+        return [this.ceilingMaterial];
+    }
+  }
+
+  private applyHighlight(): void {
+    const ref = this.highlight;
+    const targets = new Set(ref ? this.highlightTargets(ref) : []);
+    const all = [
+      this.ceilingMaterial,
+      ...this.wallMaterials.values(),
+      ...this.skirtingMaterials.values(),
+      ...this.doorMaterials.values(),
+    ];
+    for (const material of all) {
+      if (ref && targets.has(material)) {
+        material.emissive.set(HIGHLIGHT_COLOR);
+        material.emissiveIntensity = highlightIntensity(ref, `#${material.color.getHexString()}`);
+      } else {
+        material.emissive.set(0x000000);
+        material.emissiveIntensity = 1;
+      }
+    }
   }
 
   /** Rebuild all geometry for the room. */
@@ -193,9 +266,20 @@ export class RoomBuilder {
     const walls = wallLayout(shape);
     const n = outline.length;
 
+    const wallIds = walls.map((wall) => shape.wallIds[wall.index] ?? `w${wall.index}`);
+    walls.forEach((_wall, i) => {
+      const material = createWallMaterial(FALLBACK_WALL);
+      this.wallMaterials.set(wallIds[i], material);
+    });
+
     for (const wall of walls) {
+      const id = wallIds[wall.index];
+      const wallMaterial = this.wallMaterials.get(id) as MeshStandardMaterial;
       const frame = this.addFrame(wall);
-      this.addGeometry(frame, buildWallGeometry(wall, H), this.wallMaterial, true, true);
+      this.addGeometry(frame, buildWallGeometry(wall, H), wallMaterial, true, true, {
+        kind: 'wall',
+        id,
+      });
       for (const o of wall.openings) {
         if (o.kind === 'door') {
           this.buildDoor(frame, o);
@@ -204,6 +288,11 @@ export class RoomBuilder {
         }
       }
       for (const [from, to] of wall.skirting) {
+        let skirtingMaterial = this.skirtingMaterials.get(id);
+        if (!skirtingMaterial) {
+          skirtingMaterial = createWallMaterial(FALLBACK_WALL);
+          this.skirtingMaterials.set(id, skirtingMaterial);
+        }
         const a = pointAlong(wall, from, 0);
         const b = pointAlong(wall, to, 0);
         const ia = from <= 1e-6 ? inset[wall.index] : pointAlong(wall, from, SKIRTING_THICKNESS);
@@ -214,9 +303,10 @@ export class RoomBuilder {
         this.addGeometry(
           this.shell,
           buildPrismGeometry([a, b, ib, ia], 0, SKIRTING_HEIGHT),
-          this.wallMaterial,
+          skirtingMaterial,
           true,
           true,
+          { kind: 'skirting' },
         );
       }
     }
@@ -235,7 +325,14 @@ export class RoomBuilder {
         outer[i],
         { x: v.x + next.x * t, y: v.y + next.y * t },
       ];
-      this.addGeometry(this.shell, buildPrismGeometry(wedge, 0, H), this.wallMaterial, true, true);
+      this.addGeometry(
+        this.shell,
+        buildPrismGeometry(wedge, 0, H),
+        this.wallMaterials.get(wallIds[i]) as MeshStandardMaterial,
+        true,
+        true,
+        { kind: 'wall', id: wallIds[i] },
+      );
     }
 
     this.addGeometry(
@@ -245,18 +342,23 @@ export class RoomBuilder {
       false,
       true,
     );
-    this.addGeometry(this.shell, buildCeilingGeometry(outer, H), this.ceilingMaterial, true, true);
+    this.addGeometry(this.shell, buildCeilingGeometry(outer, H), this.ceilingMaterial, true, true, {
+      kind: 'ceiling',
+    });
+    // New materials start at the fallback colour; paint and highlight carry over.
+    if (this.paint) {
+      this.applyPaint(this.paint);
+    }
+    this.applyHighlight();
   }
 
   dispose(): void {
     this.clearShell();
-    this.wallMaterial.dispose();
     this.ceilingMaterial.dispose();
     this.subfloorMaterial.dispose();
     this.trimMaterial.dispose();
     this.glassMaterial.dispose();
     this.metalMaterial.dispose();
-    this.doorMaterial.dispose();
     this.skyMaterial.dispose();
     this.skyGeometry.dispose();
     this.skyTexture.dispose();
@@ -268,6 +370,11 @@ export class RoomBuilder {
       geometry.dispose();
     }
     this.geometries = [];
+    this.pickableMeshes = [];
+    for (const map of [this.wallMaterials, this.skirtingMaterials, this.doorMaterials]) {
+      map.forEach((material) => material.dispose());
+      map.clear();
+    }
   }
 
   /** Group in the wall's frame: local x along the wall, y up, z into the room. */
@@ -303,42 +410,32 @@ export class RoomBuilder {
     this.addGeometry(frame, glass, this.glassMaterial, false, false).position.set(cx, cy, z);
   }
 
-  /** Closed door: casing on the room side, a leaf in the reveal and a lever handle. */
+  /**
+   * Closed door: casing on the room side, a leaf in the reveal and a lever handle. Leaf and casing
+   * share one material (the door colour); the handle is metal. All three are tagged as the door.
+   */
   private buildDoor(frame: Group, o: ShapeOpening): void {
     const width = o.end - o.start;
     const cx = (o.start + o.end) / 2;
-    const m = this.trimMaterial;
     const cz = CASING_DEPTH / 2;
-    this.addBox(
-      frame,
+    const m = createDoorMaterial(FALLBACK_DOOR);
+    this.doorMaterials.set(o.id, m);
+    const tag: SurfaceHit = { kind: 'door', id: o.id };
+    const casing = (w: number, h: number, x: number, y: number) =>
+      this.addBox(frame, w, h, CASING_DEPTH, x, y, cz, m, tag);
+    casing(
       CASING_WIDTH,
       o.top + CASING_WIDTH,
-      CASING_DEPTH,
       o.start - CASING_WIDTH / 2,
       (o.top + CASING_WIDTH) / 2,
-      cz,
-      m,
     );
-    this.addBox(
-      frame,
+    casing(
       CASING_WIDTH,
       o.top + CASING_WIDTH,
-      CASING_DEPTH,
       o.end + CASING_WIDTH / 2,
       (o.top + CASING_WIDTH) / 2,
-      cz,
-      m,
     );
-    this.addBox(
-      frame,
-      width + 2 * CASING_WIDTH,
-      CASING_WIDTH,
-      CASING_DEPTH,
-      cx,
-      o.top + CASING_WIDTH / 2,
-      cz,
-      m,
-    );
+    casing(width + 2 * CASING_WIDTH, CASING_WIDTH, cx, o.top + CASING_WIDTH / 2);
 
     const leafHeight = o.top - LEAF_LIFT;
     this.addBox(
@@ -349,29 +446,22 @@ export class RoomBuilder {
       cx,
       LEAF_LIFT + leafHeight / 2,
       LEAF_Z,
-      this.doorMaterial,
+      m,
+      tag,
     );
 
     const faceZ = LEAF_Z + LEAF_THICKNESS / 2;
     const pivot = o.end - 0.07;
+    const metal = this.metalMaterial;
     const rose = new CylinderGeometry(0.025, 0.025, 0.01, 16);
     rose.rotateX(Math.PI / 2);
-    this.addGeometry(frame, rose, this.metalMaterial, true, false).position.set(
+    this.addGeometry(frame, rose, metal, true, false, tag).position.set(
       pivot,
       HANDLE_HEIGHT,
       faceZ + 0.005,
     );
-    this.addBox(frame, 0.02, 0.02, 0.05, pivot, HANDLE_HEIGHT, faceZ + 0.03, this.metalMaterial);
-    this.addBox(
-      frame,
-      0.13,
-      0.02,
-      0.02,
-      pivot - 0.055,
-      HANDLE_HEIGHT,
-      faceZ + 0.055,
-      this.metalMaterial,
-    );
+    this.addBox(frame, 0.02, 0.02, 0.05, pivot, HANDLE_HEIGHT, faceZ + 0.03, metal, tag);
+    this.addBox(frame, 0.13, 0.02, 0.02, pivot - 0.055, HANDLE_HEIGHT, faceZ + 0.055, metal, tag);
   }
 
   private addBox(
@@ -383,6 +473,7 @@ export class RoomBuilder {
     y: number,
     z: number,
     material: MeshStandardMaterial,
+    surface?: SurfaceHit,
   ): Mesh {
     const mesh = this.addGeometry(
       parent,
@@ -390,22 +481,29 @@ export class RoomBuilder {
       material,
       true,
       true,
+      surface,
     );
     mesh.position.set(x, y, z);
     return mesh;
   }
 
+  /** `surface` tags the mesh as pickable (a tap reports it). */
   private addGeometry(
     parent: Group,
     geometry: BufferGeometry,
     material: MeshStandardMaterial | MeshPhysicalMaterial | MeshBasicMaterial,
     cast: boolean,
     receive: boolean,
+    surface?: SurfaceHit,
   ): Mesh {
     this.geometries.push(geometry);
     const mesh = new Mesh(geometry, material);
     mesh.castShadow = cast;
     mesh.receiveShadow = receive;
+    if (surface) {
+      mesh.userData['surface'] = surface;
+      this.pickableMeshes.push(mesh);
+    }
     parent.add(mesh);
     return mesh;
   }

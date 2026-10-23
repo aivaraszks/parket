@@ -20,6 +20,7 @@ import {
   planLoop,
   PLAN_LIMITS as L,
   PlanOpening,
+  PlanWall,
   roundMm,
   windowMaxHeight,
   windowMaxSill,
@@ -215,7 +216,11 @@ export function insertVertex(plan: Plan, wallId: string, at: number): EditResult
   const p = add(a, scale(normalize(sub(b, a)), at));
   const vertexId = allocate(next, 'v');
   const newWallId = allocate(next, 'w');
-  const newWall = { id: newWallId, from: vertexId, to: wall.to };
+  // The second part looks the same as the first: it copies the wall's colour.
+  const newWall: PlanWall = { id: newWallId, from: vertexId, to: wall.to };
+  if (wall.color) {
+    newWall.color = wall.color;
+  }
   wall.to = vertexId;
   next.vertices.splice(next.vertices.indexOf(a) + 1, 0, {
     id: vertexId,
@@ -520,8 +525,14 @@ export function setPlanHeight(plan: Plan, height: number): EditResult {
   return finish(next, 'wall', '', false);
 }
 
-/** The simple rectangle (with its fixed window as a real opening) as a plan. */
-export function rectangleToPlan(room: Room): Plan {
+/**
+ * The simple rectangle (with its fixed window as a real opening) as a plan. `simpleWallColors`
+ * (4 entries, index = wall; null = base) are copied onto the walls as colour overrides.
+ */
+export function rectangleToPlan(
+  room: Room,
+  simpleWallColors: readonly (string | null)[] = [],
+): Plan {
   const { length, width, height } = room;
   const w = windowFor(room);
   return {
@@ -536,7 +547,10 @@ export function rectangleToPlan(room: Room): Plan {
       { id: 'w6', from: 'v2', to: 'v3' },
       { id: 'w7', from: 'v3', to: 'v4' },
       { id: 'w8', from: 'v4', to: 'v1' },
-    ],
+    ].map((wall, i) => {
+      const color = simpleWallColors[i];
+      return color ? { ...wall, color } : wall;
+    }),
     rooms: [{ id: 'r1', wallIds: ['w5', 'w6', 'w7', 'w8'], height }],
     openings: [
       {

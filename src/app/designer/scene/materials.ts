@@ -125,17 +125,6 @@ export function createThresholdMaterial(): MeshStandardMaterial {
   return new MeshStandardMaterial({ color: 0x7a5636, roughness: 0.55, metalness: 0 });
 }
 
-/** Light walls get a wooden door, dark walls a white painted one. Hex colour. */
-export function doorColor(wallColor: string): string {
-  const c = new Color(wallColor);
-  const luminance = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-  return luminance > 0.35 ? '#9a7049' : '#f2eee6';
-}
-
-export function createDoorMaterial(): MeshStandardMaterial {
-  return new MeshStandardMaterial({
-    color: new Color(doorColor('#efe9df')),
-    roughness: 0.6,
-    metalness: 0,
-  });
+export function createDoorMaterial(color: string): MeshStandardMaterial {
+  return new MeshStandardMaterial({ color: new Color(color), roughness: 0.6, metalness: 0 });
 }

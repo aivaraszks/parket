@@ -1,5 +1,6 @@
 import { ACESFilmicToneMapping, Color, PCFShadowMap, Scene, WebGLRenderer } from 'three';
 import { PATTERN_GENERATORS } from '../patterns/registry';
+import { SurfacePaint, SurfaceRef } from '../plan/paint';
 import { RoomShape } from '../plan/room-shape';
 import { Finish, Sun } from '../state/design-defaults';
 import { Species } from '../state/species';
@@ -10,6 +11,8 @@ import { RoomBuilder } from './room-builder';
 import { diffRoom } from './room-change';
 import { FloorLayout, FloorSceneApi, SceneCallbacks } from './scene-api';
 import { ViewPreset } from './scene-commands';
+import { pickSurface } from './surface-picker';
+import { TapDetector } from './tap-detector';
 
 const BACKGROUND = '#1b120b';
 
@@ -42,6 +45,7 @@ export class FloorScene implements FloorSceneApi {
       { x: 2.5, y: 2 },
       { x: -2.5, y: 2 },
     ],
+    wallIds: ['s0', 's1', 's2', 's3'],
     height: 2.7,
     openings: [],
   };
@@ -55,6 +59,11 @@ export class FloorScene implements FloorSceneApi {
   /** The shape last built into the scene; null until the first sync. */
   private builtRoom: RoomShape | null = null;
   private floorDirty = true;
+  private paint: SurfacePaint | null = null;
+  private paintDirty = false;
+  private highlight: SurfaceRef | null = null;
+  private picking = false;
+  private readonly tapDetector = new TapDetector();
   private rafId = 0;
   private disposed = false;
   private contextLost = false;
@@ -90,6 +99,11 @@ export class FloorScene implements FloorSceneApi {
     this.rig = new CameraRig(canvas, prefersReducedMotion(), this.requestRender);
     this.scene.add(this.roomBuilder.group, this.floorBuilder.group);
 
+    canvas.addEventListener('pointerdown', this.onPointerDown, { passive: true });
+    canvas.addEventListener('pointermove', this.onPointerMove, { passive: true });
+    canvas.addEventListener('pointerup', this.onPointerUp, { passive: true });
+    canvas.addEventListener('pointercancel', this.onPointerCancel, { passive: true });
+    canvas.addEventListener('lostpointercapture', this.onPointerCancel, { passive: true });
     canvas.addEventListener('webglcontextlost', this.onContextLost);
     canvas.addEventListener('webglcontextrestored', this.onContextRestored);
     this.resizeObserver =
@@ -105,8 +119,20 @@ export class FloorScene implements FloorSceneApi {
     this.requestRender();
   }
 
-  setSurfaces(wallColor: string, ceilingColor: string): void {
-    this.roomBuilder.setColors(wallColor, ceilingColor);
+  setPaint(paint: SurfacePaint): void {
+    this.paint = paint;
+    this.paintDirty = true;
+    this.requestRender();
+  }
+
+  setPicking(on: boolean): void {
+    this.picking = on;
+    this.canvas.style.cursor = on ? 'pointer' : '';
+  }
+
+  setHighlight(ref: SurfaceRef | null): void {
+    this.highlight = ref;
+    this.roomBuilder.setHighlight(ref);
     this.requestRender();
   }
 
@@ -149,11 +175,18 @@ export class FloorScene implements FloorSceneApi {
       try {
         // No preserveDrawingBuffer: render and read back in the same task.
         this.syncScene();
-        this.renderer.render(this.scene, this.rig.camera);
-        this.canvas.toBlob(
-          (blob) => (blob ? resolve(blob) : reject(new Error('Could not create the image.'))),
-          'image/png',
-        );
+        // The selection highlight is a UI cue: never in the picture.
+        this.roomBuilder.setHighlight(null);
+        try {
+          this.renderer.render(this.scene, this.rig.camera);
+          this.canvas.toBlob(
+            (blob) => (blob ? resolve(blob) : reject(new Error('Could not create the image.'))),
+            'image/png',
+          );
+        } finally {
+          this.roomBuilder.setHighlight(this.highlight);
+          this.requestRender();
+        }
       } catch (error) {
         reject(error);
       }
@@ -166,6 +199,12 @@ export class FloorScene implements FloorSceneApi {
     cancelAnimationFrame(this.rafId);
     this.rafId = 0;
     this.resizeObserver?.disconnect();
+    this.canvas.removeEventListener('pointerdown', this.onPointerDown);
+    this.canvas.removeEventListener('pointermove', this.onPointerMove);
+    this.canvas.removeEventListener('pointerup', this.onPointerUp);
+    this.canvas.removeEventListener('pointercancel', this.onPointerCancel);
+    this.canvas.removeEventListener('lostpointercapture', this.onPointerCancel);
+    this.canvas.style.cursor = '';
     this.canvas.removeEventListener('webglcontextlost', this.onContextLost);
     this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored);
     this.rig.dispose();
@@ -214,6 +253,11 @@ export class FloorScene implements FloorSceneApi {
         this.floorDirty = true;
       }
     }
+    if (this.paintDirty && this.paint) {
+      // After any rebuild: new materials start at the fallback colour.
+      this.paintDirty = false;
+      this.roomBuilder.applyPaint(this.paint);
+    }
     if (this.floorDirty) {
       this.floorDirty = false;
       const generator = PATTERN_GENERATORS[this.layout.pattern];
@@ -245,6 +289,26 @@ export class FloorScene implements FloorSceneApi {
     this.renderer.setSize(width, height, false);
     this.rig.setAspect(width / height);
     this.requestRender();
+  };
+
+  private readonly onPointerDown = (e: PointerEvent): void => this.tapDetector.down(e);
+
+  private readonly onPointerMove = (e: PointerEvent): void => this.tapDetector.move(e);
+
+  private readonly onPointerCancel = (e: PointerEvent): void => this.tapDetector.cancel(e);
+
+  private readonly onPointerUp = (e: PointerEvent): void => {
+    const tap = this.tapDetector.up(e);
+    if (!tap || !this.picking || this.disposed || this.contextLost) return;
+    // One raycast per tap, with the matrices of the last rendered frame.
+    const hit = pickSurface(
+      this.canvas.getBoundingClientRect(),
+      tap.clientX,
+      tap.clientY,
+      this.rig.camera,
+      this.roomBuilder.pickables,
+    );
+    this.callbacks.onPick(hit);
   };
 
   private readonly onContextLost = (event: Event): void => {

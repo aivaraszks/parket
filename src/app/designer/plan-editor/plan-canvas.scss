@@ -348,8 +348,8 @@
 
 .chip-icon {
   flex: none;
-  width: 1rem;
-  height: 1rem;
+  width: calc(1rem * var(--ui-scale));
+  height: calc(1rem * var(--ui-scale));
   color: var(--plan-error);
 }
 

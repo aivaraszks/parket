@@ -6,7 +6,12 @@ import { presetPose } from './camera-rig';
 
 function centred(points: Vec2[], openings: ShapeOpening[] = [], height = 2.7): RoomShape {
   const c = bbox(points).center;
-  return { outline: points.map((p) => ({ x: p.x - c.x, y: p.y - c.y })), height, openings };
+  return {
+    outline: points.map((p) => ({ x: p.x - c.x, y: p.y - c.y })),
+    wallIds: points.map((_, i) => `w${i}`),
+    height,
+    openings,
+  };
 }
 const door = (wall: number): ShapeOpening => ({
   id: 'o1',

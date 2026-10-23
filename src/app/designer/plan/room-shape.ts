@@ -5,6 +5,7 @@
 
 import type { Design, Room } from '../state/design-defaults';
 import { bbox, perimeter, signedArea } from './polygon';
+import { SIMPLE_WALL_IDS } from './paint';
 import { loopPoints, PlanOpening, roundMm, Vec2, planLoop } from './plan-model';
 
 /**
@@ -35,6 +36,12 @@ export interface RoomShape {
    * Outward normal of an edge a -> b is normalize(dy, -dx) (y here is scene z).
    */
   outline: readonly Vec2[];
+  /**
+   * Wall ids, parallel to `outline`: wall i runs outline[i] -> outline[i + 1]. Custom mode uses
+   * the plan wall ids; simple mode the fixed ids `s0`..`s3` (`SIMPLE_WALL_IDS`). They are the
+   * keys of `SurfacePaint.walls`.
+   */
+  wallIds: readonly string[];
   /** Ceiling height in metres. */
   height: number;
   openings: readonly ShapeOpening[];
@@ -74,6 +81,7 @@ function simpleShape(room: Room): RoomShape {
       { x: hx, y: hy },
       { x: -hx, y: hy },
     ],
+    wallIds: SIMPLE_WALL_IDS,
     height: room.height,
     openings: [
       {
@@ -114,6 +122,7 @@ function customShape(design: Pick<Design, 'plan'>): RoomShape | null {
   };
   return {
     outline: points.map((p) => ({ x: p.x - center.x, y: p.y - center.y })),
+    wallIds: loop.walls.map((w) => w.id),
     height: loop.room.height,
     openings: plan.openings.map(toOpening).filter((o): o is ShapeOpening => o !== null),
   };
@@ -133,6 +142,8 @@ export function roomShapesEqual(a: RoomShape, b: RoomShape): boolean {
     a.height === b.height &&
     a.outline.length === b.outline.length &&
     a.outline.every((p, i) => p.x === b.outline[i].x && p.y === b.outline[i].y) &&
+    a.wallIds.length === b.wallIds.length &&
+    a.wallIds.every((id, i) => id === b.wallIds[i]) &&
     a.openings.length === b.openings.length &&
     a.openings.every((o, i) => {
       const p = b.openings[i];

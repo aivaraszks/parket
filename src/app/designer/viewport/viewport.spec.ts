@@ -2,13 +2,16 @@ import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloorSceneApi, SceneCallbacks } from '../scene/scene-api';
 import { SceneCommands } from '../scene/scene-commands';
+import { ColouringState } from '../state/colouring-state';
 import { DesignState } from '../state/design-state';
 import { FLOOR_SCENE_FACTORY, Viewport } from './viewport';
 
 function fakeScene(): FloorSceneApi {
   return {
     setRoom: vi.fn(),
-    setSurfaces: vi.fn(),
+    setPaint: vi.fn(),
+    setPicking: vi.fn(),
+    setHighlight: vi.fn(),
     setSpecies: vi.fn(),
     setFinish: vi.fn(),
     setSun: vi.fn(),
@@ -62,7 +65,12 @@ describe('Viewport', () => {
         ],
       }),
     );
-    expect(scene.setSurfaces).toHaveBeenCalledWith('#efe9df', '#f7f5f0');
+    expect(scene.setPaint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ceiling: '#f7f5f0',
+        walls: expect.objectContaining({ s0: '#efe9df' }),
+      }),
+    );
     expect(scene.setSpecies).toHaveBeenCalledWith(expect.objectContaining({ id: 'golden-oak' }));
     expect(scene.setFinish).toHaveBeenCalledWith('satin');
     expect(scene.setSun).toHaveBeenCalledWith({
@@ -111,13 +119,94 @@ describe('Viewport', () => {
         outline: expect.arrayContaining([{ x: 3, y: 2 }]),
       }),
     );
-    expect(scene.setSurfaces).toHaveBeenLastCalledWith('#3d3a38', '#f7f5f0');
+    expect(scene.setPaint).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ceiling: '#f7f5f0',
+        walls: expect.objectContaining({ s0: '#3d3a38' }),
+      }),
+    );
     expect(scene.setSpecies).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'walnut' }));
     expect(scene.setFinish).toHaveBeenLastCalledWith('gloss');
     expect(scene.setSun).toHaveBeenLastCalledWith(expect.objectContaining({ on: false }));
     expect(scene.setFloor).toHaveBeenLastCalledWith(
       expect.objectContaining({ angle: 30, plankWidth: 120 }),
     );
+  });
+
+  it('turns picking on and off with Colour mode', async () => {
+    const { fixture } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    expect(scene.setPicking).toHaveBeenLastCalledWith(false);
+    colouring.setActive(true);
+    await fixture.whenStable();
+    expect(scene.setPicking).toHaveBeenLastCalledWith(true);
+    colouring.setActive(false);
+    await fixture.whenStable();
+    expect(scene.setPicking).toHaveBeenLastCalledWith(false);
+  });
+
+  it('turns picking on while the Surfaces tab is open', async () => {
+    const { fixture } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.setSurfacesOpen(true);
+    await fixture.whenStable();
+    expect(scene.setPicking).toHaveBeenLastCalledWith(true);
+    colouring.setSurfacesOpen(false);
+    await fixture.whenStable();
+    expect(scene.setPicking).toHaveBeenLastCalledWith(false);
+  });
+
+  it('mentions Colour mode in the canvas description only while it is on', async () => {
+    const { fixture, el } = await setup();
+    const canvas = el.querySelector('canvas')!;
+    expect(el.querySelector('#viewport-colour-help')).toBeNull();
+    expect(canvas.getAttribute('aria-describedby')).not.toContain('viewport-colour-help');
+    TestBed.inject(ColouringState).setActive(true);
+    await fixture.whenStable();
+    expect(canvas.getAttribute('aria-describedby')).toContain('viewport-colour-help');
+    expect(el.querySelector('#viewport-colour-help')?.textContent).toContain('Colour mode is on');
+  });
+
+  it('selects the tapped surface and clears the selection on an empty tap', async () => {
+    const { fixture } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    callbacks?.onPick({ kind: 'wall', id: 's1' });
+    await fixture.whenStable();
+    expect(colouring.selected()).toEqual({ kind: 'wall', id: 's1' });
+    expect(colouring.lastTap()).toBe(1);
+    expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'wall', id: 's1' });
+    callbacks?.onPick(null);
+    await fixture.whenStable();
+    expect(colouring.selected()).toBeNull();
+    expect(scene.setHighlight).toHaveBeenLastCalledWith(null);
+  });
+
+  it('highlights a list selection even with Colour mode off', async () => {
+    const { fixture } = await setup();
+    TestBed.inject(ColouringState).select({ kind: 'ceiling' }, 'list');
+    await fixture.whenStable();
+    expect(scene.setHighlight).toHaveBeenLastCalledWith({ kind: 'ceiling' });
+  });
+
+  it('clears the selection when a mode switch removes the selected wall', async () => {
+    const { fixture } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.select({ kind: 'wall', id: 's2' }, 'list');
+    await fixture.whenStable();
+    expect(colouring.selected()).not.toBeNull();
+    TestBed.inject(DesignState).setMode('custom');
+    await fixture.whenStable();
+    expect(colouring.selected()).toBeNull();
+    expect(scene.setHighlight).toHaveBeenLastCalledWith(null);
+  });
+
+  it('keeps a selection that still exists after a plan edit', async () => {
+    const { fixture } = await setup();
+    const colouring = TestBed.inject(ColouringState);
+    colouring.select({ kind: 'wall', id: 's2' }, 'list');
+    TestBed.inject(DesignState).setRoomLength(6);
+    await fixture.whenStable();
+    expect(colouring.selected()).toEqual({ kind: 'wall', id: 's2' });
   });
 
   it('describes the view for assistive technology and links the keyboard help', async () => {

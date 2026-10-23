@@ -25,7 +25,7 @@
 }
 
 .progress {
-  width: min(16rem, 70%);
+  width: min(calc(16rem * var(--ui-scale)), 70%);
   height: 4px;
   overflow: hidden;
   background: var(--control-border);

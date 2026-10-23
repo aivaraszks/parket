@@ -1,6 +1,15 @@
 import { computed, DestroyRef, inject, Service, signal } from '@angular/core';
 import { estimate } from '../calc/calculator';
 import { minPlanHeight, rectangleToPlan, setPlanHeight } from '../plan/plan-edit';
+import {
+  applySurfaceColor,
+  hasAccentWalls,
+  normalizeHex,
+  paintsEqual,
+  resolvePaint,
+  stripPlanColors,
+  SurfaceRef,
+} from '../plan/paint';
 import { Plan } from '../plan/plan-model';
 import { COMPACT_ID_AT, compactIds, sanitizePlan } from '../plan/plan-sanitize';
 import { validatePlan } from '../plan/plan-validate';
@@ -22,11 +31,10 @@ import {
   RoomMode,
   STORAGE_KEY,
   STORAGE_KEY_V1,
+  STORAGE_KEY_V2,
   Sun,
 } from './design-defaults';
 import { isSpeciesId } from './species';
-
-const HEX_COLOR = /^#[0-9a-f]{6}$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -51,6 +59,12 @@ function sanitizePlank(
   );
 }
 
+/** Exactly 4 entries: only the first 4 of an array are read, bad or missing ones are null. */
+function sanitizeSimpleWallColors(raw: unknown): (string | null)[] {
+  const list = Array.isArray(raw) ? raw.slice(0, 4) : [];
+  return [0, 1, 2, 3].map((i) => normalizeHex(list[i]));
+}
+
 /** Turn unknown (stored) data into a valid design; every bad field falls back to its default. */
 export function sanitizeDesign(raw: unknown): Design {
   const d = cloneDefaults();
@@ -72,14 +86,11 @@ export function sanitizeDesign(raw: unknown): Design {
       width: clampToLimit(room['width'], LIMITS.roomWidth, d.room.width),
       height: clampToLimit(room['height'], LIMITS.roomHeight, d.room.height),
     },
-    wallColor:
-      typeof raw['wallColor'] === 'string' && HEX_COLOR.test(raw['wallColor'])
-        ? raw['wallColor'].toLowerCase()
-        : d.wallColor,
-    ceilingColor:
-      typeof raw['ceilingColor'] === 'string' && HEX_COLOR.test(raw['ceilingColor'])
-        ? raw['ceilingColor'].toLowerCase()
-        : d.ceilingColor,
+    wallColor: normalizeHex(raw['wallColor']) ?? d.wallColor,
+    ceilingColor: normalizeHex(raw['ceilingColor']) ?? d.ceilingColor,
+    skirtingColor: normalizeHex(raw['skirtingColor']),
+    doorColor: normalizeHex(raw['doorColor']),
+    simpleWallColors: sanitizeSimpleWallColors(raw['simpleWallColors']),
     species: isSpeciesId(raw['species']) ? raw['species'] : d.species,
     plank: fitted.plank,
     planksPerBlock: fitted.planksPerBlock,
@@ -115,9 +126,13 @@ function readStored(key: string): Design | null {
   }
 }
 
-/** v2, then v1 (simple mode, no plan), then defaults. */
+/** v3, then v2 (no colours: defaults fill in), then v1 (simple mode, no plan), then defaults. */
 function loadDesign(): Design {
-  const v2 = readStored(STORAGE_KEY);
+  const v3 = readStored(STORAGE_KEY);
+  if (v3) {
+    return v3;
+  }
+  const v2 = readStored(STORAGE_KEY_V2);
   if (v2) {
     return v2;
   }
@@ -145,12 +160,25 @@ export class DesignState {
   /** The SIMPLE rectangle (length, width, height) regardless of mode. */
   readonly simpleRoom = computed(() => this.design().room);
   /** The simple rectangle (with its window) as a plan: where the editor starts and "Start over" returns to. */
-  readonly startingPlan = computed(() => rectangleToPlan(this.design().room));
+  readonly startingPlan = computed(() =>
+    rectangleToPlan(this.design().room, this.design().simpleWallColors),
+  );
   /** Lowest ceiling the custom plan allows (keeps every door and window intact); null in simple mode. */
   readonly minRoomHeight = computed(() => {
     const d = this.design();
     return d.mode === 'custom' && d.plan ? minPlanHeight(d.plan) : LIMITS.roomHeight.min;
   });
+  /**
+   * Resolved colours of every wall, the skirting and the doors, memoised so a colour change never
+   * touches `roomShape`. Feed it to `FloorSceneApi.setPaint`.
+   */
+  readonly paint = computed(() => resolvePaint(this.design(), this.roomShape()), {
+    equal: paintsEqual,
+  });
+  /** True when some wall of the active mode has its own colour: "All walls" then needs a confirm. */
+  readonly hasAccentWalls = computed(() => hasAccentWalls(this.design(), this.roomShape()));
+  readonly skirtingColor = computed(() => this.design().skirtingColor);
+  readonly doorColor = computed(() => this.design().doorColor);
   readonly wallColor = computed(() => this.design().wallColor);
   readonly ceilingColor = computed(() => this.design().ceilingColor);
   readonly species = computed(() => this.design().species);
@@ -260,7 +288,7 @@ export class DesignState {
     this.update((d) => ({
       ...d,
       mode,
-      plan: mode === 'custom' && !d.plan ? rectangleToPlan(d.room) : d.plan,
+      plan: mode === 'custom' && !d.plan ? rectangleToPlan(d.room, d.simpleWallColors) : d.plan,
     }));
   }
 
@@ -272,16 +300,37 @@ export class DesignState {
     }
   }
 
-  setWallColor(value: string): void {
-    if (HEX_COLOR.test(value)) {
-      this.update((d) => ({ ...d, wallColor: value.toLowerCase() }));
+  /**
+   * The single entry point for colours. `hex` is any `#rrggbb` (palette or custom); `null` means
+   * back to the default (walls, doors, skirting; ignored for the ceiling and for `walls`).
+   * `walls` also clears every wall override of the active mode, `doors` every door override.
+   * Unknown ids and invalid hex change nothing.
+   */
+  setSurfaceColor(ref: SurfaceRef, hex: string | null): void {
+    const next = applySurfaceColor(this.design(), this.roomShape(), ref, hex);
+    if (next !== this.design()) {
+      this.update(() => next);
     }
   }
 
-  setCeilingColor(value: string): void {
-    if (HEX_COLOR.test(value)) {
-      this.update((d) => ({ ...d, ceilingColor: value.toLowerCase() }));
+  /** Several colour changes in order, as one update (one persist, one undo step for callers). */
+  setSurfaceColors(changes: readonly { ref: SurfaceRef; hex: string | null }[]): void {
+    const shape = this.roomShape();
+    const next = changes.reduce(
+      (design, change) => applySurfaceColor(design, shape, change.ref, change.hex),
+      this.design(),
+    );
+    if (next !== this.design()) {
+      this.update(() => next);
     }
+  }
+
+  setWallColor(value: string): void {
+    this.setSurfaceColor({ kind: 'walls' }, value);
+  }
+
+  setCeilingColor(value: string): void {
+    this.setSurfaceColor({ kind: 'ceiling' }, value);
   }
 
   setSpecies(id: string): void {
@@ -364,12 +413,13 @@ export class DesignState {
   }
 
   /**
-   * Back to defaults, but the custom plan is kept (the editor has its own "Start over"). The mode
+   * Back to defaults, but the custom plan is kept (minus its colour overrides) (the editor has its own "Start over"). The mode
    * returns to simple. The previous design is kept for `undo()` until `dismissUndo()` or the next reset.
    */
   reset(): void {
     this.undoBuffer.set(this.design());
-    this.design.set({ ...cloneDefaults(), plan: this.design().plan });
+    const plan = this.design().plan;
+    this.design.set({ ...cloneDefaults(), plan: plan && stripPlanColors(plan) });
     this.schedulePersist();
   }
 

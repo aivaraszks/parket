@@ -25,8 +25,8 @@
   @include shared.colour-transition;
   position: relative;
   flex: none;
-  width: 3rem;
-  height: 1.75rem;
+  width: calc(3rem * var(--ui-scale));
+  height: calc(1.75rem * var(--ui-scale));
   background: var(--field-bg);
   border: 1px solid var(--control-border);
   border-radius: var(--radius-pill);
@@ -36,8 +36,8 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: calc(1.25rem * var(--ui-scale));
+  height: calc(1.25rem * var(--ui-scale));
   background: var(--text-primary);
   border-radius: 50%;
   transition: transform var(--dur-fast);
@@ -54,7 +54,7 @@ input:checked + .track {
 
 input:checked + .track .knob {
   background: var(--text-on-accent);
-  transform: translateX(1.25rem);
+  transform: translateX(calc(1.25rem * var(--ui-scale)));
 }
 
 input:focus-visible + .track {
